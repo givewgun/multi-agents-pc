@@ -1,0 +1,5 @@
+handoffs/log/
+.claude/settings.local.json
+*.stderr.txt
+.env
+.env.*
