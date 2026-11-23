@@ -190,6 +190,11 @@ export async function askClaude(opts, cfg) {
   const args = ['-p', '--output-format', 'stream-json', '--verbose', '--model', alias, '--max-turns', String(maxTurns)];
   if (edit) args.push('--permission-mode', 'acceptEdits');
   if (resume) args.push('--resume', resume);
+  if (opts.allow?.length) args.push('--allowedTools', opts.allow.join(','));
+  if (opts.disallow?.length) args.push('--disallowedTools', opts.disallow.join(','));
+  // Isolated MCP set (bench): only the given config file, or none at all with strictMcp alone.
+  if (opts.strictMcp) args.push('--strict-mcp-config');
+  if (opts.mcpConfig) args.push('--mcp-config', opts.mcpConfig);
 
   const t0 = Date.now();
   const r = await run(bin, args, { cwd, input: prompt, timeoutMs, env: { ...MANAGED_ENV, TANDEM_CALLER: 'claude' } });
