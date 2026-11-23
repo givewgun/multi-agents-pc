@@ -2,18 +2,25 @@
 
 tandem = thin orchestration layer over two *headless agent CLIs*. It owns no model calls itself.
 
-```
- user / Claude Code / Antigravity
-        │ CLI (bin/tandem.js)      │ MCP stdio (tandem mcp)
-        ▼                          ▼
-   src/cli.js ── route() ── src/router.js        (rules, no tokens)
-        │ callAndLog()
-        ▼
-   src/agents.js ── askGemini ─► agy  (-p argv | stream-json stdin)
-                └── askClaude ─► claude -p (prompt on stdin)
-        │ normalized result
-        ▼
-   src/ledger.js ─► ~/.tandem/ledger.jsonl ─► summarize() ─► stats / budget / router / dashboard
+```mermaid
+flowchart TD
+  Caller["User / Claude Code / Antigravity"]
+  Caller -- "CLI (bin/tandem.js)" --> CLI["src/cli.js"]
+  Caller -- "MCP stdio (tandem mcp)" --> MCP["src/mcp.js"]
+
+  CLI -- "route() — 0 tokens" --> Router["src/router.js"]
+  MCP -- "route_task / callAndLog()" --> CLI
+
+  CLI -- "callAndLog()" --> Agents["src/agents.js"]
+  Agents -- "askGemini (-p argv | stream-json stdin)" --> Agy["agy CLI"]
+  Agents -- "askClaude (claude -p via stdin)" --> Claude["claude CLI"]
+
+  Agy -- "normalized result" --> Ledger["src/ledger.js (~/.tandem/ledger.jsonl)"]
+  Claude -- "normalized result + rate_limit_event" --> Ledger
+  Hooks["src/hooks.js (Stop hooks)"] -- "direct interactive deltas" --> Ledger
+
+  Ledger -- "summarize()" --> Consumers["CLI stats / Budget / Router / Dashboard"]
+  Transcripts["src/transcripts.js"] -- "read native transcripts" --> Consumers
 ```
 
 ## Modules
@@ -31,6 +38,7 @@ tandem = thin orchestration layer over two *headless agent CLIs*. It owns no mod
 | `templates/antigravity-plugin/` | Antigravity side, installed to `~/.gemini/config/plugins/tandem/`: MCP (`ask_claude`), Stop hook, rule, `ask-claude` + `pair` skills | — |
 | `src/usage.js` | plan-window snapshots (`~/.tandem/usage.json`): Gemini via free `agy /usage`, Claude from each call's `rate_limit_event` | `getUsage`, `storeSnapshot`, `parseAgyUsage`, `parseClaudeRateLimit` |
 | `src/config.js` | defaults ⊕ `~/.tandem/config.json`, aliases, pricing | `loadConfig`, `setConfigValue`, `resolve*Model` |
+| `src/version.js` | single source of truth for package version (CLI `--version` + MCP `serverInfo`) | `VERSION` |
 | `src/mcp.js` | MCP server, newline JSON-RPC 2.0, tools depend on `--expose` | `serve` |
 | `src/init.js` | copy `templates/` into a project + MCP configs; `--global`: `~/.claude/skills`, `~/.gemini/config/{rules,mcp_config.json}`, `claude mcp add --scope user` | `init`, `initGlobal` |
 | `src/doctor.js` | install/auth/permission checks, `--live` pings | `doctor` |

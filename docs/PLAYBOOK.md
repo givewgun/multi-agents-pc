@@ -30,7 +30,7 @@ Don't pick `claude-*` models inside Antigravity: on AI Pro they're a paid add-on
 |---|---|---|
 | Architecture, spec, threat model | Claude Opus | `tandem ask claude "..." --model opus` |
 | Hard bug (race, leak, flaky) | Claude Sonnet | `tandem ask claude "..."` |
-| Read/summarize a big codebase or logs | Gemini Hydrogen | `tandem ask gemini "..." --model hydrogen` |
+| Read/summarize a big codebase or logs | Gemini Neon | `tandem ask gemini "..." --model neon` |
 | "Latest version / best lib / what changed" | Gemini Neon | `tandem ask gemini "..." --model neon` |
 | Boilerplate, tests, migrations, renames | Gemini Hydrogen | `... --model hydrogen --edit` |
 | Feature build | Gemini Orchestrator, then Claude reviews | `tandem run "..." --edit` then `tandem review --agent claude` |
