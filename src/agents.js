@@ -1,9 +1,7 @@
-import { writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { randomUUID } from 'node:crypto';
 import { which, run } from './proc.js';
-import { tandemHome, resolveGeminiModel, resolveClaudeModel } from './config.js';
+import { resolveGeminiModel, resolveClaudeModel } from './config.js';
 
 const home = os.homedir();
 
@@ -47,6 +45,19 @@ export function lastJsonLine(stdout) {
   return null;
 }
 
+/** From agy stream-json output, the envelope inside the last {"event":"result"} line. */
+export function streamResult(stdout) {
+  const lines = stdout.split(/\r?\n/);
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (!lines[i].includes('"result"')) continue;
+    try {
+      const ev = JSON.parse(lines[i]);
+      if (ev.event === 'result' && ev.result) return ev.result;
+    } catch { /* keep looking */ }
+  }
+  return null;
+}
+
 function result(agent, model, fields) {
   return {
     agent, model, ok: false, status: 'error', text: '', sessionId: null,
@@ -69,25 +80,23 @@ export async function askGemini(opts, cfg) {
     });
   }
 
-  let text = prompt;
-  if (text.length > MAX_ARGV_PROMPT) {
-    const dir = path.join(tandemHome(), 'prompts');
-    mkdirSync(dir, { recursive: true });
-    const f = path.join(dir, `${randomUUID()}.md`);
-    writeFileSync(f, prompt);
-    text = `Read the file ${f} and follow the instructions in it exactly. Reply with your final answer only.`;
-  }
-
-  const args = ['-p', text, '--output-format', 'json', '--print-timeout', `${Math.ceil(timeoutMs / 1000)}s`];
+  // Long prompts exceed the OS command-line limit; send them as one NDJSON event on stdin instead.
+  // (A temp file doesn't work: agy denies reads outside the workspace in headless mode.)
+  const stream = prompt.length > MAX_ARGV_PROMPT;
+  const args = stream
+    ? ['--input-format', 'stream-json', '--output-format', 'stream-json']
+    : ['-p', prompt, '--output-format', 'json'];
+  args.push('--print-timeout', `${Math.ceil(timeoutMs / 1000)}s`);
   if (edit) args.push('--mode', 'accept-edits');
   if (model) args.push('--model', model);
   if (effort) args.push('--effort', effort);
   if (conversation) args.push('--conversation', conversation);
 
   const t0 = Date.now();
-  const r = await run(bin, args, { cwd, timeoutMs: timeoutMs + 30_000 });
+  const input = stream ? JSON.stringify({ event: 'user', message: { content: prompt } }) + '\n' : undefined;
+  const r = await run(bin, args, { cwd, input, timeoutMs: timeoutMs + 30_000 });
   const durationMs = Date.now() - t0;
-  const j = lastJsonLine(r.stdout);
+  const j = stream ? streamResult(r.stdout) : lastJsonLine(r.stdout);
   if (r.timedOut) return result('gemini', model, { status: 'timeout', durationMs, stderr: r.stderr, error: 'timed out' });
   if (!j) {
     return result('gemini', model, {

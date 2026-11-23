@@ -28,9 +28,10 @@ export const RULES = [
     reason: 'UI work + browser testing: Gemini Orchestrator.',
   },
   {
-    category: 'bulk-read', agent: 'gemini', model: 'hydrogen', weight: 2,
+    // Bench: Hydrogen and Flash Low miscounted a 600-line log; Neon was exact and fastest of the passers.
+    category: 'bulk-read', agent: 'gemini', model: 'neon', weight: 2,
     re: /\b(summari[sz]e|map (the|this)? ?(repo|codebase|project)|explain (the|this)? ?(codebase|repo|project)|read (all|every|these)|scan|inventory|find (all|every)|list (all|every)|where is|grep|logs?)\b/i,
-    reason: 'Reading lots of material: Gemini context is cheap.',
+    reason: 'Reading lots of material: Gemini context is cheap; Neon stays exact on long inputs.',
   },
   {
     category: 'boilerplate', agent: 'gemini', model: 'hydrogen', weight: 2,
@@ -43,9 +44,10 @@ export const RULES = [
     reason: 'Feature build: Gemini Orchestrator plans+executes; have Claude review the diff.',
   },
   {
-    category: 'trivial', agent: 'gemini', model: 'flash', weight: 1,
+    // Bench: Flash Low passed every short task at ~3s; avoid it for long inputs (see bulk-read).
+    category: 'trivial', agent: 'gemini', model: 'flash-low', weight: 1,
     re: /\b(typo|one-?liner|regex for|what is|how do i|command to|quick question|commit message)\b/i,
-    reason: 'Trivial: cheapest model.',
+    reason: 'Trivial: fastest model, 100% on short benchmark tasks.',
   },
 ];
 
@@ -69,7 +71,7 @@ export function route(task, budget = null) {
       confidence: Math.min(0.95, 0.5 + (score - runnerUp) * 0.15),
     };
   } else if (task.length < 160) {
-    pick = { category: 'trivial', agent: 'gemini', model: 'flash', reason: 'Short, unclassified: cheapest model.', confidence: 0.4 };
+    pick = { category: 'trivial', agent: 'gemini', model: 'flash-low', reason: 'Short, unclassified: fastest model.', confidence: 0.4 };
   } else {
     pick = { category: 'general', agent: 'gemini', model: 'neon', reason: 'Unclassified: Gemini first, escalate to Claude if weak.', confidence: 0.3 };
   }

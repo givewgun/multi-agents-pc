@@ -7,10 +7,10 @@ description: Delegate a task to Gemini (Google Antigravity agy CLI) to save Clau
 
 1. **Worth it?** Yes for big+mechanical work, many files to read, fresh web facts, independent second opinion. No for tiny edits or work that needs this conversation's context.
 2. **Pick model**: `tandem route "<task>"` suggests one. Manual guide:
-   - `flash`: trivial lookups, summaries, commit messages
+   - `flash-low`: short trivial questions, regexes, commit messages (~3s). Not for long inputs.
    - `hydrogen`: boilerplate, unit tests, upgrades, renames
-   - `orchestrator`: multi-file features/fixes (Neon plans, Hydrogen executes)
-   - `neon` / `neon-high`: hard reasoning, reviews, second opinions
+   - `neon`: default. Reading/summarizing large inputs, reviews, second opinions, reasoning
+   - `orchestrator`: multi-file features/fixes only (slow on single-shot tasks)
 3. **Self-contained prompt**: goal, files in scope, constraints, return format ("<300 words", "JSON", "file:line bullets"). Gemini cannot see this conversation.
 4. **Run** (from the project root; run in background if >2 min):
    ```

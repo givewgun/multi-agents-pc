@@ -1,6 +1,23 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { lastJsonLine, classifyFailure } from '../src/agents.js';
+import { lastJsonLine, classifyFailure, streamResult } from '../src/agents.js';
+
+describe('streamResult', () => {
+  it('returns the envelope from the last result event', () => {
+    const stdout = [
+      '{"event":"init","conversation_id":"c1","init":{"model":"m"}}',
+      '{"event":"step_update","text_delta":"thinking about \\"result\\""}',
+      '{"event":"result","result":{"conversation_id":"c1","status":"SUCCESS","response":"30"}}',
+      '',
+    ].join('\n');
+    assert.deepEqual(streamResult(stdout), { conversation_id: 'c1', status: 'SUCCESS', response: '30' });
+  });
+
+  it('returns null when no result event arrived', () => {
+    assert.equal(streamResult('{"event":"init"}\n'), null);
+    assert.equal(streamResult(''), null);
+  });
+});
 
 describe('lastJsonLine', () => {
   it('parses plain JSON stdout', () => {

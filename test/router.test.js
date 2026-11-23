@@ -31,11 +31,17 @@ describe('route()', () => {
     assert.equal(pick.model, 'neon');
   });
 
-  it('routes short unknown tasks to gemini/flash (trivial)', () => {
+  it('routes short unknown tasks to gemini/flash-low (trivial)', () => {
     const pick = route('ping pong');
     assert.equal(pick.category, 'trivial');
     assert.equal(pick.agent, 'gemini');
-    assert.equal(pick.model, 'flash');
+    assert.equal(pick.model, 'flash-low');
+  });
+
+  it('routes bulk reading to gemini/neon (bench: exact on long inputs)', () => {
+    const pick = route('summarize these logs and list all errors');
+    assert.equal(pick.category, 'bulk-read');
+    assert.equal(pick.model, 'neon');
   });
 
   it('overrides claude pick to gemini/neon-high when claudeWeek ratio >= 1', () => {

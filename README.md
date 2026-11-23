@@ -66,14 +66,35 @@ Inside Claude Code, say *"use gemini for the grunt work"*. The `/gemini` skill a
 | research | Gemini Neon | Google Search grounding |
 | review | Gemini Neon (first pass) | Cheap; escalate important diffs to Claude |
 | ui | Gemini Orchestrator | UI + browser |
-| bulk-read | Gemini Hydrogen | Cheap context |
+| bulk-read | Gemini Neon | Cheap context; exact on long inputs (bench) |
 | boilerplate | Gemini Hydrogen | Mechanical generation |
 | feature | Gemini Orchestrator → Claude review | Plan+execute, then judgment |
-| trivial | Gemini Flash | Cheapest |
+| trivial | Gemini Flash Low | Fastest; 100% on short tasks (bench) |
 
 Budget overrides: when the Claude weekly budget is used up, Claude routes go to Gemini Neon High. After a Gemini quota error, Gemini routes go to Claude Sonnet for 5 hours.
 
-<!-- BENCH -->
+## Benchmark: what the data says
+
+`tandem bench`: 8 graded tasks (regex, slugify, find-the-bug, 600-line log counting, concurrency reasoning, LRU fix, expression parser, agentic file read) × 7 models. Full tables are in [docs/BENCHMARK.md](docs/BENCHMARK.md).
+
+| model | pass | avg time | Claude spend (API-equiv) |
+|---|---|---|---|
+| Gemini Flash Low | 7/8 | **3.3s** | flat |
+| Gemini Flash | 8/8 | 23.9s | flat |
+| Gemini Hydrogen | 7/8 | 8.4s | flat |
+| Gemini Orchestrator | 8/8 | 1.1m | flat |
+| **Gemini Neon** | **8/8** | 15.6s | flat |
+| Claude Haiku | 8/8 | 11.7s | $0.008 / call |
+| Claude Sonnet | 8/8 | 6.3s | **$0.14 / call** |
+
+What it shows:
+1. **Every headless Claude Code call carries about 70k tokens of overhead** (system prompt, tools, CLAUDE.md; mostly cached). A one-line answer still costs Sonnet about $0.14. Send small jobs to Gemini or Haiku, and give Claude fewer, bigger jobs.
+2. **Gemini Neon is the best default Gemini:** 8/8 at 16s.
+3. **Flash Low is great for short tasks and unreliable on long exact work.** It miscounted a 600-line log badly. Hydrogen was off by one.
+4. **Orchestrator is overkill for single-shot tasks** (1.1 min average). Use it for multi-file agentic builds.
+5. On these tasks Gemini matched Claude on the "hard" reasoning ones. Hard-debug still routes to Claude, because real bugs carry more context and a wrong answer costs more. Treat that as a judgment call this benchmark doesn't settle.
+
+Limits: one run per cell, small single-shot tasks, no multi-file edit tasks yet. Run `tandem bench --repeat 3` on your own machine and plan.
 
 ## How savings are computed
 
