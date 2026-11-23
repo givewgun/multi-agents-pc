@@ -140,7 +140,7 @@ async function askGeminiOnce(opts, cfg) {
 
   const t0 = Date.now();
   const input = stream ? JSON.stringify({ event: 'user', message: { content: prompt } }) + '\n' : undefined;
-  const r = await run(bin, args, { cwd, input, timeoutMs: timeoutMs + 30_000, env: MANAGED_ENV });
+  const r = await run(bin, args, { cwd, input, timeoutMs: timeoutMs + 30_000, env: { ...MANAGED_ENV, TANDEM_CALLER: 'gemini' } });
   const durationMs = Date.now() - t0;
   const j = stream ? streamResult(r.stdout) : lastJsonLine(r.stdout);
   if (r.timedOut) return result('gemini', model, { status: 'timeout', durationMs, stderr: r.stderr, error: 'timed out' });
@@ -192,7 +192,7 @@ export async function askClaude(opts, cfg) {
   if (resume) args.push('--resume', resume);
 
   const t0 = Date.now();
-  const r = await run(bin, args, { cwd, input: prompt, timeoutMs, env: MANAGED_ENV });
+  const r = await run(bin, args, { cwd, input: prompt, timeoutMs, env: { ...MANAGED_ENV, TANDEM_CALLER: 'claude' } });
   const durationMs = Date.now() - t0;
   const { final: j, plan } = claudeStream(r.stdout);
   if (r.timedOut) return result('claude', model, { status: 'timeout', durationMs, stderr: r.stderr, error: 'timed out', plan });

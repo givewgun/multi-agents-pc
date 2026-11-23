@@ -168,10 +168,16 @@ async function readStdin() {
   return s;
 }
 
+/** True when the *other* agent's CLI spawned this agent outside tandem (e.g. Claude running raw `agy`). */
+export function spawnedByOtherAgent(agent, env = process.env) {
+  if (agent === 'gemini') return env.CLAUDECODE === '1' || Boolean(env.CLAUDE_CODE_ENTRYPOINT?.trim());
+  return false;
+}
+
 /** `tandem hook claude|gemini` — called by each agent's Stop hook with the event JSON on stdin. */
 export async function runHook(agent) {
   try {
-    if (process.env.TANDEM_MANAGED) return; // tandem's own calls are already in the ledger
+    if (process.env.TANDEM_MANAGED || spawnedByOtherAgent(agent)) return; // tandem's own or cross-agent CLI runs
     let cfg = DEFAULT_CONFIG;
     try { cfg = loadConfig(); } catch { /* bad config must not break the hook */ }
     const p = JSON.parse((await readStdin()).replace(/^﻿/, '') || '{}');

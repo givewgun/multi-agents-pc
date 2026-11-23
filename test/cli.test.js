@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseArgs } from '../src/cli.js';
+import { parseArgs, inferCaller } from '../src/cli.js';
 
 describe('parseArgs', () => {
   it('parses positional arguments', () => {
@@ -27,5 +27,25 @@ describe('parseArgs', () => {
     const res = parseArgs(['run', '--edit', '--', '--not-a-flag', 'pos']);
     assert.deepEqual(res._, ['run', '--not-a-flag', 'pos']);
     assert.deepEqual(res.flags, { edit: true });
+  });
+});
+
+describe('inferCaller', () => {
+  it('prefers explicit --from over env vars', () => {
+    assert.equal(inferCaller({ from: 'user' }, { TANDEM_CALLER: 'gemini', CLAUDECODE: '1' }), 'user');
+  });
+
+  it('prefers TANDEM_CALLER over CLAUDECODE', () => {
+    assert.equal(inferCaller({}, { TANDEM_CALLER: 'gemini', CLAUDECODE: '1' }), 'gemini');
+  });
+
+  it('detects Claude Code via CLAUDECODE or CLAUDE_CODE_ENTRYPOINT', () => {
+    assert.equal(inferCaller({}, { CLAUDECODE: '1' }), 'claude');
+    assert.equal(inferCaller({}, { CLAUDE_CODE_ENTRYPOINT: 'cli' }), 'claude');
+  });
+
+  it('defaults to user when no caller signals are present or CLAUDECODE is falsy', () => {
+    assert.equal(inferCaller({}, {}), 'user');
+    assert.equal(inferCaller({}, { CLAUDECODE: '0', CLAUDE_CODE_ENTRYPOINT: '   ' }), 'user');
   });
 });

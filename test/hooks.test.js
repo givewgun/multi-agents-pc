@@ -8,7 +8,7 @@ const prevHome = process.env.TANDEM_HOME;
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tandem-'));
 process.env.TANDEM_HOME = tmpDir;
 
-const { claudeUsage, geminiUsage, readNewLines, sweep } = await import('../src/hooks.js');
+const { claudeUsage, geminiUsage, readNewLines, sweep, spawnedByOtherAgent } = await import('../src/hooks.js');
 const { readRecords } = await import('../src/ledger.js');
 const { DEFAULT_CONFIG } = await import('../src/config.js');
 
@@ -121,5 +121,13 @@ describe('hooks', () => {
 
     assert.equal(sweep(DEFAULT_CONFIG), 0);
     assert.equal(readRecords().length, 2);
+  });
+
+  it('spawnedByOtherAgent flags gemini hooks invoked inside Claude Code, never claude itself', () => {
+    assert.equal(spawnedByOtherAgent('gemini', { CLAUDECODE: '1' }), true);
+    assert.equal(spawnedByOtherAgent('gemini', { CLAUDE_CODE_ENTRYPOINT: 'cli' }), true);
+    assert.equal(spawnedByOtherAgent('gemini', { CLAUDECODE: '0', CLAUDE_CODE_ENTRYPOINT: '' }), false);
+    assert.equal(spawnedByOtherAgent('gemini', {}), false);
+    assert.equal(spawnedByOtherAgent('claude', { CLAUDECODE: '1', CLAUDE_CODE_ENTRYPOINT: 'cli' }), false);
   });
 });

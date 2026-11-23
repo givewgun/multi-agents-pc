@@ -77,17 +77,28 @@ function printResult(res, rec, flags) {
 
 function exitFor(res) { process.exitCode = res.ok ? 0 : res.status === 'denied' ? 3 : 1; }
 
+/** Who invoked this CLI command: explicit --from, TANDEM_CALLER, or host agent env. */
+export function inferCaller(flags = {}, env = process.env) {
+  if (flags.from) return flags.from;
+  if (env.TANDEM_CALLER) return env.TANDEM_CALLER;
+  if (env.CLAUDECODE === '1' || Boolean(env.CLAUDE_CODE_ENTRYPOINT?.trim())) return 'claude';
+  return 'user';
+}
+
+const inferLead = (flags, from) => flags.lead || (from === 'claude' || from === 'gemini' ? from : null);
+
 async function cmdAsk(rest, flags, cfg) {
   const [agent, ...words] = rest;
   if (!['gemini', 'claude'].includes(agent)) throw new Error('Usage: tandem ask <gemini|claude> "prompt" [--model m] [--edit] [--file f]');
   const prompt = await promptFrom(words, flags);
   if (!prompt) throw new Error('Empty prompt');
+  const from = inferCaller(flags);
   const { res, rec } = await callAndLog(agent, {
     prompt, model: flags.model, edit: !!flags.edit, effort: flags.effort,
     conversation: flags.continue, resume: flags.continue, cwd: flags.cwd,
     timeoutMs: parseDuration(flags.timeout), maxTurns: flags['max-turns'] ? Number(flags['max-turns']) : undefined,
     addDirs: list(flags['add-dir']), allow: list(flags.allow),
-  }, { from: flags.from || process.env.TANDEM_CALLER || 'user', tag: flags.tag, thread: flags.thread || null, lead: flags.lead || null }, cfg);
+  }, { from, tag: flags.tag, thread: flags.thread || null, lead: inferLead(flags, from) }, cfg);
   printResult(res, rec, flags);
   exitFor(res);
 }
@@ -105,11 +116,13 @@ async function cmdRoute(rest, flags, cfg) {
 async function cmdRun(rest, flags, cfg) {
   const prompt = await promptFrom(rest, flags);
   if (!prompt) throw new Error('Usage: tandem run "task" [--edit] [--no-fallback]');
-  const pick = route(prompt, await currentBudget(cfg), { pins: cfg.routing?.pins, lead: flags.lead });
+  const from = inferCaller(flags);
+  const lead = inferLead(flags, from);
+  const pick = route(prompt, await currentBudget(cfg), { pins: cfg.routing?.pins, lead });
   const model = flags.model || pick.model;
   process.stderr.write(c.dim(`→ ${pick.agent}/${model} (${pick.category}): ${pick.reason}\n`));
   for (const n of pick.notes) process.stderr.write(c.yellow(`! ${n}\n`));
-  const meta = { from: flags.from || 'user', category: pick.category, tag: flags.tag, thread: flags.thread || null, lead: flags.lead || null };
+  const meta = { from, category: pick.category, tag: flags.tag, thread: flags.thread || null, lead };
   const opts = { prompt, model, edit: !!flags.edit, cwd: flags.cwd, timeoutMs: parseDuration(flags.timeout) };
   let { res, rec } = await callAndLog(pick.agent, opts, meta, cfg);
   if (!res.ok && res.status !== 'denied' && !flags['no-fallback']) {
@@ -140,9 +153,11 @@ async function cmdReview(rest, flags, cfg) {
   const who = flags.agent || 'gemini';
   const agents = who === 'both' ? ['gemini', 'claude'] : [who];
   const prompt = REVIEW_PROMPT(diff, rest.join(' '));
+  const from = inferCaller(flags);
+  const lead = inferLead(flags, from);
   const runs = await Promise.all(agents.map((a) => callAndLog(a, {
     prompt, model: a === 'gemini' ? (flags['gemini-model'] || 'neon') : (flags['claude-model'] || 'sonnet'), cwd: flags.cwd,
-  }, { from: 'user', category: 'review', tag: flags.tag, thread: flags.thread || null }, cfg)));
+  }, { from, category: 'review', tag: flags.tag, thread: flags.thread || null, lead }, cfg)));
   if (flags.json) {
     process.stdout.write(JSON.stringify(runs.map(({ res, rec }) => ({ ...res, stderr: undefined, record: rec })), null, 2) + '\n');
   } else {
