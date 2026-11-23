@@ -13,7 +13,7 @@ description: >-
    - **Do it yourself for:** reading many files, web research, boilerplate, tests, UI. Check `route_task` (`self: true` → do it yourself).
 2. **Pick model:** if the user named a model, use exactly that. Otherwise default to `sonnet`; use `opus` only for genuinely hard problems (`haiku` for tiny checks).
 3. **Keep it lean & batched:** send diffs, file paths, or concise summaries — never file dumps. Batch related questions into one call.
-4. **Call `ask_claude`** (pass a shared `thread: "<short-slug>"` across related calls for one warm session):
+4. **Call `ask_claude`** (always pass `cwd: "<active workspace path>"` so Claude can read the repo, plus a shared `thread: "<short-slug>"` across related calls for one warm session):
    - **Goal:** one sentence on what you need decided or checked.
    - **Scope / context:** changed files, diff, or minimal repro (Claude cannot see this chat).
    - **Constraints:** invariants, off-limits files, read-only unless `edit: true` after a commit.

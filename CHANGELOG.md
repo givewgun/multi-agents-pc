@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Docs & release automation:** `docs/ELI5.md`, Mermaid architecture diagrams, `SECURITY.md`, `docs/RELEASING.md`, and GitHub Actions automated release/npm publishing workflow.
 
 ### Fixed
+- MCP `ask_claude` / `ask_gemini` now accept an explicit `cwd` parameter (and automatically query MCP `roots/list` when the client supports it), fixing plugin MCP servers spawning Claude inside `~/.gemini/config/plugins/tandem` instead of the active workspace.
 - Headless `agy` empty-answer retry when a single action is denied.
 - Dashboard `Host` and `Origin` header validation to guard against DNS rebinding.
 - `--port 0` handling in `tandem dashboard`.

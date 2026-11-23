@@ -4,8 +4,9 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { VERSION } from '../src/version.js';
+import { saveThread, readThreads, threadKey } from '../src/mcp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const binPath = path.resolve(__dirname, '..', 'bin', 'tandem.js');
@@ -97,6 +98,97 @@ describe('mcp server', () => {
       const names = listRes.result.tools.map((t) => t.name);
       assert.ok(names.includes('ask_claude'));
       assert.ok(!names.includes('ask_gemini'));
+      const askClaudeTool = listRes.result.tools.find((t) => t.name === 'ask_claude');
+      assert.equal(askClaudeTool.inputSchema.properties.cwd.type, 'string');
+
+      const badCwd = await request(3, 'tools/call', {
+        name: 'ask_claude',
+        arguments: { prompt: 'hello', cwd: path.join(tmpDir, 'does-not-exist') },
+      });
+      assert.equal(badCwd.result.isError, true);
+      assert.match(badCwd.result.content[0].text, /not an existing directory/i);
+    } finally {
+      child.kill();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('scopes saved threads by explicit cwd', () => {
+    const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'tandem-home-'));
+    const prevHome = process.env.TANDEM_HOME;
+    process.env.TANDEM_HOME = tmpHome;
+    try {
+      const repoA = path.join(tmpHome, 'repo-a');
+      const repoB = path.join(tmpHome, 'repo-b');
+      saveThread('shared-slug', 'claude', 'sess-a', repoA);
+      saveThread('shared-slug', 'claude', 'sess-b', repoB);
+      const all = readThreads();
+      assert.equal(all[threadKey('shared-slug', repoA)].claude, 'sess-a');
+      assert.equal(all[threadKey('shared-slug', repoA)].cwd, path.resolve(repoA));
+      assert.equal(all[threadKey('shared-slug', repoB)].claude, 'sess-b');
+      assert.equal(all[threadKey('shared-slug', repoB)].cwd, path.resolve(repoB));
+    } finally {
+      if (prevHome === undefined) delete process.env.TANDEM_HOME;
+      else process.env.TANDEM_HOME = prevHome;
+      fs.rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
+
+  it('queries client roots/list when capabilities.roots is advertised and cwd is omitted', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tandem-roots-'));
+    const fakeWorkspace = path.join(tmpDir, 'my-project');
+    fs.mkdirSync(fakeWorkspace);
+    // Point claude path to a nonexistent binary so callTool fails fast with `missing` while still recording ledger cwd.
+    fs.writeFileSync(path.join(tmpDir, 'config.json'), JSON.stringify({ paths: { claude: path.join(tmpDir, 'no-claude-bin') } }));
+
+    const child = spawn(process.execPath, [binPath, 'mcp', '--expose', 'claude'], {
+      env: { ...process.env, TANDEM_HOME: tmpDir, TANDEM_CLAUDE: '' },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    let buf = '';
+    let rootsRequested = false;
+    const pending = new Map();
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => {
+      buf += chunk;
+      let idx;
+      while ((idx = buf.indexOf('\n')) !== -1) {
+        const line = buf.slice(0, idx).trim();
+        buf = buf.slice(idx + 1);
+        if (!line) continue;
+        const msg = JSON.parse(line);
+        if (msg.method === 'roots/list') {
+          rootsRequested = true;
+          child.stdin.write(JSON.stringify({
+            jsonrpc: '2.0',
+            id: msg.id,
+            result: { roots: [{ uri: pathToFileURL(fakeWorkspace).href, name: 'my-project' }] },
+          }) + '\n');
+          continue;
+        }
+        if (msg.id !== undefined && pending.has(msg.id)) {
+          const { resolve, timer } = pending.get(msg.id);
+          clearTimeout(timer);
+          pending.delete(msg.id);
+          resolve(msg);
+        }
+      }
+    });
+
+    const req = (id, method, params = {}) => new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`Timeout on ${method}`)), 5000);
+      pending.set(id, { resolve, timer });
+      child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n');
+    });
+
+    try {
+      await req(1, 'initialize', { protocolVersion: '2025-11-25', capabilities: { roots: {} } });
+      await req(2, 'tools/call', { name: 'ask_claude', arguments: { prompt: 'hello', model: 'haiku' } });
+      assert.equal(rootsRequested, true);
+      const ledgerLines = fs.readFileSync(path.join(tmpDir, 'ledger.jsonl'), 'utf8').trim().split('\n');
+      const rec = JSON.parse(ledgerLines.at(-1));
+      assert.equal(rec.project, 'my-project');
     } finally {
       child.kill();
       fs.rmSync(tmpDir, { recursive: true, force: true });

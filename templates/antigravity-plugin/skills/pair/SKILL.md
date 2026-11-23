@@ -8,7 +8,7 @@ description: >-
 
 # Pair with Claude (you are the lead)
 
-Pick the pattern, keep Claude calls few and small (Claude's plan is scarcer: send diffs/summaries, never file dumps; batch questions), and reuse one thread id for the whole task (`thread: "<short-slug>"` on every `ask_claude` call).
+Pick the pattern, keep Claude calls few and small (Claude's plan is scarcer: send diffs/summaries, never file dumps; batch questions), and pass `cwd: "<active workspace path>"` plus one `thread: "<short-slug>"` on every `ask_claude` call.
 
 1. **plan-critique** (non-trivial plans): draft the plan → `ask_claude` model `sonnet` (`opus` only if genuinely hard) "critique as an equal partner: top risks with fixes, what's missing, ≤300 words" → merge, and tell the user what changed and why.
 2. **split** (big builds): you take the volume slices (broad reading, research, boilerplate, tests, UI). Give Claude only the tight, judgment-heavy slices (architecture, tricky core logic, subtle multi-file edits) with `edit: true`, strict file ownership, after a commit. Review its diff before integrating.
