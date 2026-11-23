@@ -1,0 +1,36 @@
+{
+  "name": "tandem-agents",
+  "version": "0.1.0",
+  "description": "Run Claude Code and Gemini (Antigravity agy) as one team: routing, bridges, MCP, cost ledger, budget dashboard, benchmarks.",
+  "type": "module",
+  "bin": {
+    "tandem": "bin/tandem.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "templates/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test test/",
+    "bench": "node bin/tandem.js bench",
+    "dashboard": "node bin/tandem.js dashboard"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "gemini",
+    "antigravity",
+    "agy",
+    "multi-agent",
+    "mcp",
+    "cost",
+    "llm-routing"
+  ],
+  "license": "MIT"
+}
