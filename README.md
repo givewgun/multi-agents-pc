@@ -14,6 +14,17 @@ Already paying for Claude and Google AI Pro/Ultra, but mostly using one while th
 >
 > Rule of thumb: **mostly reading or typing → Gemini. Mostly deciding → Claude. Review or stuck → always the other agent.**
 
+![tandem local dashboard overview: work split, 5-hour and weekly plan windows, and live limit routing](https://raw.githubusercontent.com/givewgun/multi-agents-pc/main/docs/images/dashboard-overview.png)
+
+<details>
+<summary>More screenshots: Call flow, per-model stats, and Conversations viewer</summary>
+
+![Call flow between User, Claude, and Gemini with per-model stats](https://raw.githubusercontent.com/givewgun/multi-agents-pc/main/docs/images/dashboard-flow-models.png)
+
+![Conversations tab inspecting a live Claude-Gemini critique thread](https://raw.githubusercontent.com/givewgun/multi-agents-pc/main/docs/images/dashboard-conversations.png)
+
+</details>
+
 ## How it works
 
 ```mermaid

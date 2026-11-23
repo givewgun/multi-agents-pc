@@ -67,6 +67,8 @@ tandem review --agent both        # both agents review your git diff
 tandem dashboard --open           # local UI: call flow, budgets & chats
 ```
 
+![tandem local dashboard overview](images/dashboard-overview.png)
+
 ## Wait… (quick FAQ)
 
 - **Will this cost me extra money?** No. It drives the `claude` and `agy` CLIs using the subscriptions you already have — no API keys.
