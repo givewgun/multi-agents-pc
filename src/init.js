@@ -13,6 +13,7 @@ const FILES = [
   ['AGENTS.md', 'AGENTS.md'],
   ['CLAUDE.md', 'CLAUDE.md'],
   ['skill-gemini.md', '.claude/skills/gemini/SKILL.md'],
+  ['skill-pair.md', '.claude/skills/pair/SKILL.md'],
   ['rule-claude-bridge.md', '.agents/rules/claude-bridge.md'],
   ['handoff-TEMPLATE.md', 'handoffs/TEMPLATE.md'],
 ];

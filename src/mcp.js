@@ -7,6 +7,9 @@ import { getUsage } from './usage.js';
 import { route } from './router.js';
 import { readRecords, summarize } from './ledger.js';
 
+// The host that loads this server is the lead: exposing Gemini means Claude Code is talking to the user.
+export const leadFor = (expose) => (expose === 'gemini' ? 'claude' : expose === 'claude' ? 'gemini' : null);
+
 const SUPPORTED = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 
 const promptProps = {
@@ -65,7 +68,7 @@ async function callTool(name, a, expose, cfg) {
   const text = (t, isError = false) => ({ content: [{ type: 'text', text: t }], isError });
   if (name === 'route_task') {
     if (typeof a.task !== 'string' || !a.task) return text('task (string) is required', true);
-    return text(JSON.stringify(route(a.task, await currentBudget(cfg)), null, 2));
+    return text(JSON.stringify(route(a.task, await currentBudget(cfg), { lead: leadFor(expose), pins: cfg.routing?.pins }), null, 2));
   }
   if (name === 'tandem_stats') {
     const s = summarize(readRecords(), cfg, Date.now(), await getUsage(cfg));
@@ -77,13 +80,13 @@ async function callTool(name, a, expose, cfg) {
   let model = a.model;
   let category = null;
   if (agent === 'gemini' && !model) {
-    const pick = route(a.prompt, await currentBudget(cfg));
+    const pick = route(a.prompt, await currentBudget(cfg), { pins: cfg.routing?.pins });
     category = pick.category;
     model = pick.agent === 'gemini' ? pick.model : 'neon';
   }
   const { res, rec } = await callAndLog(agent, {
     prompt: a.prompt, model, edit: !!a.edit, conversation: a.conversation_id, resume: a.session_id,
-  }, { from: agent === 'gemini' ? 'claude' : 'gemini', category, tag: 'mcp' }, cfg);
+  }, { from: agent === 'gemini' ? 'claude' : 'gemini', category, tag: 'mcp', lead: leadFor(expose) }, cfg);
   const footer = `\n\n[${res.agent} ${res.model} · ${res.status} · ${Math.round(res.durationMs / 1000)}s · ${res.usage.total} tokens · session ${res.sessionId}${res.denied.length ? ` · denied: ${res.denied.join(', ')}` : ''}${agent === 'gemini' ? ` · ≈$${rec.claudeEquivUsd.toFixed(4)} of Claude usage offloaded` : ''}]`;
   if (!res.ok) return text(`${res.agent} failed (${res.status}): ${res.error || 'no output'}${footer}`, true);
   return text(res.text + footer);

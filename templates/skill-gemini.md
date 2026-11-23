@@ -6,7 +6,7 @@ description: Delegate a task to Gemini (Google Antigravity agy CLI) to save Clau
 # Delegate to Gemini
 
 1. **Worth it?** Yes for big+mechanical work, many files to read, fresh web facts, independent second opinion. No for tiny edits or work that needs this conversation's context.
-2. **Pick model**: `tandem route "<task>"` suggests one. Manual guide:
+2. **Pick model**: if the user named one, use exactly that. Otherwise `route_task` or `tandem route "<task>" --lead claude` suggests one (and says when to do it yourself). Manual guide:
    - `flash-low`: short trivial questions, regexes, commit messages (~3s). Not for long inputs.
    - `hydrogen`: boilerplate, unit tests, upgrades, renames
    - `neon`: default. Reading/summarizing large inputs, reviews, second opinions, reasoning

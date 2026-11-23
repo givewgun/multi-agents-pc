@@ -1,5 +1,6 @@
 // Rule-based task router: zero tokens spent deciding who spends tokens.
-// Principle: Claude thinks, Gemini lifts. Volume goes to Gemini; judgment stays with Claude.
+// Rules say which agent is *better/cheaper* at a kind of work. Who leads is separate: the lead is
+// whichever agent the user is talking to, and it does work itself when it's the best fit.
 
 export const RULES = [
   {
@@ -18,9 +19,14 @@ export const RULES = [
     reason: 'Fresh web facts: Gemini has Google Search grounding.',
   },
   {
-    category: 'review', agent: 'gemini', model: 'neon', weight: 2,
-    re: /\b(review|second opinion|critique|sanity.?check|look over|audit (this|the) (diff|pr|change))\b/i,
-    reason: 'Cheap first-pass review on Gemini; escalate to Claude for important changes.',
+    category: 'review', agent: 'gemini', model: 'neon', weight: 2, partnerRequired: true,
+    re: /\b(review|look over|audit (this|the) (diff|pr|change))\b/i,
+    reason: 'Review by the other agent; Gemini Neon is a cheap first pass, escalate important changes to Claude.',
+  },
+  {
+    category: 'second-opinion', agent: 'gemini', model: 'neon', weight: 2, partnerRequired: true,
+    re: /\b(second opinion|critique|sanity.?check|poke holes|devil'?s advocate|alternative (hypothes[ie]s|approach(es)?)|what am i missing)\b/i,
+    reason: 'A second opinion must come from the other agent.',
   },
   {
     category: 'ui', agent: 'gemini', model: 'orchestrator', weight: 2,
@@ -51,11 +57,46 @@ export const RULES = [
   },
 ];
 
+const OTHER = { claude: 'gemini', gemini: 'claude' };
+const PARTNER_MODEL = { claude: 'sonnet', gemini: 'neon' };
+
+/** "claude:opus" | "gemini" → {agent, model} */
+export function parsePin(s) {
+  const [agent, model] = String(s).split(':');
+  if (agent !== 'claude' && agent !== 'gemini') throw new Error(`Bad pin "${s}" (use claude:<model> or gemini:<model>)`);
+  return { agent, model: model || PARTNER_MODEL[agent] };
+}
+
 /**
+ * Order of precedence: user pin > budget > rules. Then lead logic:
+ *  - partnerRequired categories (review, second opinion) never go to the lead itself;
+ *  - otherwise, if the best agent IS the lead, `self: true` = do it yourself, no call.
  * @param {string} task
- * @param {object} [budget] summarize(...).budget, to steer away from exhausted pools
+ * @param {object} [budget] planBudget(...) — plan-window usage per agent
+ * @param {{lead?: 'claude'|'gemini', pins?: Record<string,string>}} [opts]
  */
-export function route(task, budget = null) {
+export function route(task, budget = null, { lead = null, pins = {} } = {}) {
+  const pick = rulePick(task);
+  const pin = pins && Object.hasOwn(pins, pick.category) ? parsePin(pins[pick.category]) : null;
+  if (pin) {
+    Object.assign(pick, pin, { pinned: true, reason: `Pinned by you: ${pick.category} → ${pin.agent}:${pin.model}.` });
+  }
+  applyBudget(pick, budget);
+  const rule = RULES.find((r) => r.category === pick.category);
+  pick.partnerRequired = !!rule?.partnerRequired;
+  if (lead) {
+    pick.lead = lead;
+    if (pick.partnerRequired && pick.agent === lead && !pick.pinned) {
+      pick.notes.push(`${pick.category} must come from the partner, not the lead (${lead}).`);
+      Object.assign(pick, { agent: OTHER[lead], model: PARTNER_MODEL[OTHER[lead]] });
+    }
+    pick.self = pick.agent === lead;
+    if (pick.self) pick.notes.push(`You (${lead}) are the best fit: do it yourself, no call needed.`);
+  }
+  return pick;
+}
+
+function rulePick(task) {
   const scores = new Map();
   for (const rule of RULES) {
     const hits = task.match(new RegExp(rule.re.source, 'gi'));
@@ -77,12 +118,17 @@ export function route(task, budget = null) {
   }
   pick.alternatives = ranked.slice(1, 3).map(([r]) => ({ category: r.category, agent: r.agent, model: r.model }));
   pick.notes = [];
+  return pick;
+}
 
+function applyBudget(pick, budget) {
   // budget = planBudget(...): plan-window usage vs. limits for each agent.
   if (budget) {
     const c = budget.claude || {};
     const g = budget.gemini || {};
-    if (c.exhausted && g.exhausted) {
+    if (pick.pinned && ((pick.agent === 'claude' && c.exhausted) || (pick.agent === 'gemini' && g.exhausted))) {
+      pick.notes.push(`Your pin keeps ${pick.agent}, but its plan is at tandem's limit.`);
+    } else if (c.exhausted && g.exhausted) {
       pick.notes.push(`Both plans at their limits (Claude ${windows(c)}, Gemini ${windows(g)}): keeping the original pick.`);
     } else if (pick.agent === 'claude' && c.exhausted) {
       pick.notes.push(`Claude plan at its limit (${windows(c)}): sending to Gemini Neon High instead.`);
@@ -94,7 +140,6 @@ export function route(task, budget = null) {
       pick.notes.push(`Claude plan getting full (${windows(c)}): consider Gemini.`);
     }
   }
-  return pick;
 }
 
 const pct = (r) => `${Math.round(r * 100)}%`;

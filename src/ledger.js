@@ -2,6 +2,7 @@ import { appendFileSync, readFileSync, mkdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { tandemHome } from './config.js';
+import { transcriptPathFor } from './agents.js';
 
 export function ledgerPath() { return path.join(tandemHome(), 'ledger.jsonl'); }
 
@@ -44,7 +45,7 @@ export function planBudget(usage, cfg, records = [], now = Date.now()) {
 
 const DEFAULT_BUDGETS = { claude5h: 0.8, claudeWeek: 0.85, gemini5h: 0.95, geminiWeek: 0.95, warnAt: 0.7 };
 
-export function makeRecord(res, { from = 'user', category = null, tag = null, promptChars = 0, cwd = process.cwd() }, cfg) {
+export function makeRecord(res, { from = 'user', category = null, tag = null, promptChars = 0, cwd = process.cwd(), thread = null, lead = null }, cfg) {
   const claudeEquivUsd = res.agent === 'claude'
     ? res.costUsd
     : claudeEquivalentUsd(res.usage, cfg.pricing, cfg.savingsBaseline);
@@ -66,6 +67,10 @@ export function makeRecord(res, { from = 'user', category = null, tag = null, pr
     costUsd: res.agent === 'claude' ? res.costUsd : 0,
     claudeEquivUsd: Number(claudeEquivUsd.toFixed(6)),
     sessionId: res.sessionId,
+    // v0.2: conversation grouping and where to read the exchange (see `tandem show`).
+    thread,
+    lead,
+    transcriptPath: res.transcriptPath ?? transcriptPathFor(res.agent, res.sessionId, cwd),
     denied: res.denied,
     error: res.error ? String(res.error).slice(0, 500) : null,
     // Plan usage right after the call (Claude only; Gemini's comes from `agy /usage`).
@@ -127,11 +132,21 @@ export function summarize(records, cfg, now = Date.now(), usage = null) {
     add(edges[`${r.from}->${r.to}`] ||= bucket(), r);
   }
 
-  const geminiOkWeek = week.filter((r) => r.to === 'gemini' && r.status === 'ok');
+  // "Offloaded" = Gemini work done *on request of tandem/Claude*; work the user did directly with
+  // Gemini (tag interactive, from the Stop hook) is Gemini's own contribution, not an offload.
+  const delegated = (r) => r.tag !== 'interactive';
+  const geminiOkWeek = week.filter((r) => r.to === 'gemini' && r.status === 'ok' && delegated(r));
   const claudeWeekUsd = week.filter((r) => r.to === 'claude').reduce((s, r) => s + (r.costUsd || 0), 0);
   const offloadedWeekUsd = geminiOkWeek.reduce((s, r) => s + (r.claudeEquivUsd || 0), 0);
-  const offloadedAllUsd = records.filter((r) => r.to === 'gemini' && r.status === 'ok')
+  const offloadedAllUsd = records.filter((r) => r.to === 'gemini' && r.status === 'ok' && delegated(r))
     .reduce((s, r) => s + (r.claudeEquivUsd || 0), 0);
+
+  // Who did the work this week: tokens and Claude-equivalent value per agent, split by how it ran.
+  const workSplit = Object.create(null);
+  for (const agent of ['claude', 'gemini']) {
+    workSplit[agent] = { interactive: bucket(), delegated: bucket() };
+    for (const r of week) if (r.to === agent) add(workSplit[agent][r.tag === 'interactive' ? 'interactive' : 'delegated'], r);
+  }
 
   const sub = cfg.subscriptions || {};
   const monthly = (sub.claude?.monthlyUsd || 0) + (sub.gemini?.monthlyUsd || 0);
@@ -149,6 +164,7 @@ export function summarize(records, cfg, now = Date.now(), usage = null) {
       geminiMonthlyUsd: sub.gemini?.monthlyUsd ?? null,
       subscriptionsMonthlyUsd: monthly || null,
     },
+    workSplit,
     activity: {
       fiveHour: { claude: fiveH.filter((r) => r.to === 'claude').length, gemini: fiveH.filter((r) => r.to === 'gemini').length },
       week: { claude: week.filter((r) => r.to === 'claude').length, gemini: week.filter((r) => r.to === 'gemini').length },

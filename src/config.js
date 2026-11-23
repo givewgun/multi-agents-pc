@@ -48,7 +48,10 @@ export const DEFAULT_CONFIG = {
     geminiWeek: 0.95,
     warnAt: 0.7,
   },
+  // `tandem prefer <agent> <model>` writes these.
   defaults: { claudeModel: 'sonnet', geminiModel: 'neon' },
+  // `tandem pin <category> <agent:model>` — the user's choice beats routing rules.
+  routing: { pins: {} },
   timeouts: { geminiMs: 15 * 60_000, claudeMs: 15 * 60_000 },
   paths: { agy: null, claude: null },
 };
