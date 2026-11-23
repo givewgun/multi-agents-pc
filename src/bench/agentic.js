@@ -67,7 +67,9 @@ export function tapCounts(out) {
 export function gradeHidden(dir, task) {
   writeTree(dir, task.hidden);
   const files = Object.keys(task.hidden).map((f) => path.join(dir, ...f.split('/')));
-  const r = spawnSync(process.execPath, ['--test', '--test-reporter=tap', ...files], { cwd: dir, encoding: 'utf8', timeout: 60_000, windowsHide: true });
+  const env = { ...process.env };
+  delete env.NODE_TEST_CONTEXT; // else a nested run reports to a parent test runner instead of printing TAP
+  const r = spawnSync(process.execPath, ['--test', '--test-reporter=tap', ...files], { cwd: dir, env, encoding: 'utf8', timeout: 60_000, windowsHide: true });
   const k = tapCounts(r.stdout || '');
   return { passed: k.pass, total: k.total, score: k.total ? k.pass / k.total : 0, pass: r.status === 0 && k.total > 0 && k.fail === 0 };
 }
