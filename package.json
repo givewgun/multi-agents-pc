@@ -1,6 +1,6 @@
 {
   "name": "tandem-agents",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Run Claude Code and Gemini (Antigravity agy) as one team: routing, bridges, MCP, cost ledger, budget dashboard, benchmarks.",
   "author": "Gun Kaewngarm",
   "license": "MIT",
