@@ -1,8 +1,30 @@
 # 0011. Visibility and accounting from native transcripts + Stop hooks
 
-Date: 2026-11-23 · Status: accepted
+- **Date:** 2026-11-23
+- **Status:** accepted
 
-**Context:** The user couldn't see what the agents said to each other, and the dashboard showed ~99% "offloaded" because only tandem-made calls were logged; the lead's own interactive work was invisible. Headless `agy` runs never appear in the Antigravity app (CLI, app and IDE have separate stores). Both agents already save full transcripts: Claude `~/.claude/projects/<cwd-slug>/<session>.jsonl`, Gemini `~/.gemini/antigravity-cli/brain/<id>/.system_generated/logs/transcript.jsonl` (per-step token counts verified).
-**Decision:** No prompt copies. Ledger records keep `sessionId`, `transcriptPath`, `thread` and `lead`; `tandem show` and the dashboard Conversations tab read the native files and print the resume command (`claude --resume`, `agy --conversation`). Stop hooks (Claude Code `~/.claude/settings.json`; Antigravity through the tandem plugin's `hooks.json`) run `tandem hook <agent>`. Each run reads only the transcript bytes added since its last offset (`~/.tandem/hook-state.json`), dedups Claude's streamed usage by message id, and logs `tag: interactive`. tandem sets `TANDEM_MANAGED=1` on agents it spawns; hooks skip those runs (no double count). Hooks swallow every error. Measured: 122 ms on a 6 MB transcript.
-**Verified:** headless `agy` conversations never show in the Antigravity app, even with `--new-project` (the project appears, its conversation list stays empty). tandem's own view is the only place to read them.
-**Consequences:** + honest work split, conversations readable without duplicating data, privacy unchanged (ADR 0006). − Depends on undocumented transcript formats; parsers are defensive and unit-tested. The first hook run on an existing session logs its whole history once.
+## Context
+
+Users could not inspect what the two agents said to each other, and the dashboard showed ~99% "offloaded" because only `tandem`-initiated calls were logged while direct interactive sessions stayed invisible.
+
+Both CLIs already write full local transcripts:
+- **Claude Code:** `~/.claude/projects/<cwd-slug>/<session>.jsonl`
+- **Antigravity CLI:** `~/.gemini/antigravity-cli/brain/<id>/.system_generated/logs/transcript.jsonl`
+
+*(Verified: headless `agy` conversations never appear in the Antigravity desktop app, even with `--new-project`—the project appears in the sidebar, but its conversation list stays empty. `tandem`'s own view is the only place to read them.)*
+
+## Decision
+
+- **No prompt copies:** ledger records store `sessionId`, `transcriptPath`, `thread`, and `lead`. `tandem show` and the dashboard's **Conversations** tab read the native transcript files directly and print the native resume command (`claude --resume`, `agy --conversation`).
+- **Stop hooks for direct work:** install Stop hooks (`~/.claude/settings.json` for Claude Code; `~/.gemini/config/plugins/tandem/hooks.json` for Antigravity) running `tandem hook <agent>`.
+- **Reconcile + sweep:** hooks reconcile each session's transcript token totals against `~/.tandem/hook-state.json` (deduplicating Claude's streamed messages by `message.id`) and log the delta as `tag: interactive`. A periodic `sweep` picks up tokens written *after* Antigravity's Stop hook fires.
+- **Prevent double counting:** `tandem` sets `TANDEM_MANAGED=1` on agents it spawns (and guards cross-agent CLI invocations); hooks skip those runs and swallow all errors so an agent session is never disrupted (measured: 122 ms on a 6 MB transcript).
+
+## Consequences
+
+**Pros**
+- Honest interactive-vs-delegated work split, full conversation visibility without duplicating prompt data, and privacy model unchanged ([0006](0006-local-ledger-savings.md)).
+
+**Trade-offs**
+- Depends on undocumented native transcript schemas; parsers are written defensively and unit-tested.
+- The very first hook run on an already-long session logs that session's accumulated history once.

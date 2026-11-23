@@ -1,7 +1,23 @@
 # 0001. Node ESM, zero runtime dependencies
 
-Date: 2026-11-23 · Status: accepted
+- **Date:** 2026-11-23
+- **Status:** accepted
 
-**Context:** v0 was PowerShell scripts. That meant Windows only, PS 5.1 mangling quotes in native args, and stderr turning into terminating errors. The tool must also run on macOS/Linux, and Claude Code users already have Node.
-**Decision:** One Node ≥18.17 ESM CLI using only `node:` built-ins. Tests use `node:test`. Spawn with argv arrays, never a shell string.
-**Consequences:** + `npm i -g`, no supply-chain surface, same code on 3 OSes (CI matrix). − We hand-roll small things (arg parser, MCP server, SVG charts). Keep them small and tested.
+## Context
+
+v0 started as PowerShell scripts. That locked the project to Windows, ran into PowerShell 5.1 mangling quotes in native CLI arguments, and turned child-process stderr into terminating errors. `tandem` needs to run cleanly on Windows, macOS, and Linux, and Claude Code users already have Node installed.
+
+## Decision
+
+- Build one Node `>=18.17` ESM CLI using only `node:` built-ins (zero runtime dependencies).
+- Run unit tests with `node:test`.
+- Spawn subprocesses with argv arrays (`src/proc.js`), never shell strings.
+
+## Consequences
+
+**Pros**
+- Simple `npm install -g` with zero supply-chain dependency surface.
+- Identical code across Windows, macOS, and Linux (verified in the CI matrix).
+
+**Trade-offs**
+- Small utilities (arg parser, MCP server, SVG charts) are hand-rolled and must stay lean and unit-tested.
