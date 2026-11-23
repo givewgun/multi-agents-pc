@@ -95,6 +95,9 @@ export async function askGemini(opts, cfg) {
   if (model) args.push('--model', model);
   if (effort) args.push('--effort', effort);
   if (conversation) args.push('--conversation', conversation);
+  // Per-call grants, never saved: extra readable dirs and permission rules (e.g. read_url(example.com)).
+  for (const d of opts.addDirs || []) args.push('--add-dir', d);
+  if (opts.allow?.length) args.push('--settings', JSON.stringify({ permissions: { allow: opts.allow } }));
 
   const t0 = Date.now();
   const input = stream ? JSON.stringify({ event: 'user', message: { content: prompt } }) + '\n' : undefined;

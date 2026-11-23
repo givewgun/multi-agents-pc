@@ -28,6 +28,9 @@ export function parseArgs(argv) {
   return out;
 }
 
+/** "a;b" → ["a","b"] (semicolon: paths and rules can contain commas). */
+const list = (v) => (v ? String(v).split(';').map((s) => s.trim()).filter(Boolean) : []);
+
 function parseDuration(s) {
   if (!s) return undefined;
   const m = /^(\d+(?:\.\d+)?)(ms|s|m|h)?$/.exec(String(s));
@@ -82,6 +85,7 @@ async function cmdAsk(rest, flags, cfg) {
     prompt, model: flags.model, edit: !!flags.edit, effort: flags.effort,
     conversation: flags.continue, resume: flags.continue, cwd: flags.cwd,
     timeoutMs: parseDuration(flags.timeout), maxTurns: flags['max-turns'] ? Number(flags['max-turns']) : undefined,
+    addDirs: list(flags['add-dir']), allow: list(flags.allow),
   }, { from: flags.from || process.env.TANDEM_CALLER || 'user', tag: flags.tag }, cfg);
   printResult(res, rec, flags);
   exitFor(res);
