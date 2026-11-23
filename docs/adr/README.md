@@ -13,3 +13,5 @@ Read the one-liner first. Open the file only if you're touching that area. New d
 | [0007](0007-mcp-expose-other-agent.md) | Hand-rolled MCP server; each side sees only the other agent's tool | accepted |
 | [0008](0008-dashboard-local-static.md) | Dashboard = 127.0.0.1 server + one static HTML file, polling | accepted |
 | [0009](0009-plan-window-budgets.md) | Budgets = % of each plan's 5h/weekly window, read from `claude` rate_limit_event and free `agy /usage` | accepted |
+| [0010](0010-lead-partner-protocol.md) | Lead = agent the user talks to; partner for review/second opinion; user pins > budget > rules | accepted |
+| [0011](0011-native-transcripts-and-hooks.md) | Read native transcripts (no prompt copies); Stop hooks log direct work; `TANDEM_MANAGED` prevents double count | accepted |

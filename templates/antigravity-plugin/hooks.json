@@ -1,0 +1,11 @@
+{
+  "tandem": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": {{HOOK_COMMAND}},
+        "timeout": 10
+      }
+    ]
+  }
+}

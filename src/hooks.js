@@ -104,12 +104,15 @@ async function readStdin() {
 
 /** `tandem hook claude|gemini` — called by each agent's Stop hook with the event JSON on stdin. */
 export async function runHook(agent, cfg) {
-  if (process.env.TANDEM_MANAGED) return; // tandem's own calls are already in the ledger
   try {
+    if (process.env.TANDEM_MANAGED) return; // tandem's own calls are already in the ledger
     const p = JSON.parse((await readStdin()).replace(/^﻿/, '') || '{}');
     if (agent === 'claude') logSession('claude', p.session_id, p.transcript_path, p.cwd, cfg);
     else if (agent === 'gemini') logSession('gemini', p.conversationId, p.transcriptPath, p.cwd || p.workspacePaths?.[0], cfg, p.modelName);
-  } catch { /* never break the agent */ }
+  } catch { /* never break the agent */ } finally {
+    // Antigravity requires a JSON decision on stdout; anything but "continue" lets the agent stop.
+    if (agent === 'gemini') process.stdout.write('{"decision":"stop"}\n');
+  }
 }
 
 /** Command string an agent should run for the hook. Forward slashes work in cmd, PowerShell and bash. */

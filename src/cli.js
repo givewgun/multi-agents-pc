@@ -1,13 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { loadConfig, setConfigValue, configPath, readUserConfig } from './config.js';
-import { ask } from './agents.js';
+import { loadConfig, setConfigValue, configPath, readUserConfig, saveUserConfig, GEMINI_ALIASES, CLAUDE_ALIASES, resolveGeminiModel, resolveClaudeModel } from './config.js';
+import { ask, findAgy } from './agents.js';
+import { run as spawnRun } from './proc.js';
 import { makeRecord, appendRecord, readRecords, summarize, ledgerPath, planBudget } from './ledger.js';
 import { getUsage, storeSnapshot } from './usage.js';
-import { route } from './router.js';
+import { route, RULES, parsePin } from './router.js';
 import { usd, tok, ms, pct, c, bar, table } from './format.js';
 
-const BOOL = new Set(['edit', 'json', 'force', 'mcp', 'open', 'no-fallback', 'staged', 'help', 'quiet', 'dry-run', 'live', 'global', 'refresh-claude']);
+const BOOL = new Set(['edit', 'json', 'force', 'mcp', 'open', 'no-fallback', 'staged', 'help', 'quiet', 'dry-run', 'live', 'global', 'refresh-claude', 'clear']);
 
 export function parseArgs(argv) {
   const out = { _: [], flags: {} };
@@ -86,7 +87,7 @@ async function cmdAsk(rest, flags, cfg) {
     conversation: flags.continue, resume: flags.continue, cwd: flags.cwd,
     timeoutMs: parseDuration(flags.timeout), maxTurns: flags['max-turns'] ? Number(flags['max-turns']) : undefined,
     addDirs: list(flags['add-dir']), allow: list(flags.allow),
-  }, { from: flags.from || process.env.TANDEM_CALLER || 'user', tag: flags.tag }, cfg);
+  }, { from: flags.from || process.env.TANDEM_CALLER || 'user', tag: flags.tag, thread: flags.thread || null, lead: flags.lead || null }, cfg);
   printResult(res, rec, flags);
   exitFor(res);
 }
@@ -108,7 +109,7 @@ async function cmdRun(rest, flags, cfg) {
   const model = flags.model || pick.model;
   process.stderr.write(c.dim(`â†’ ${pick.agent}/${model} (${pick.category}): ${pick.reason}\n`));
   for (const n of pick.notes) process.stderr.write(c.yellow(`! ${n}\n`));
-  const meta = { from: flags.from || 'user', category: pick.category, tag: flags.tag };
+  const meta = { from: flags.from || 'user', category: pick.category, tag: flags.tag, thread: flags.thread || null, lead: flags.lead || null };
   const opts = { prompt, model, edit: !!flags.edit, cwd: flags.cwd, timeoutMs: parseDuration(flags.timeout) };
   let { res, rec } = await callAndLog(pick.agent, opts, meta, cfg);
   if (!res.ok && res.status !== 'denied' && !flags['no-fallback']) {
@@ -141,7 +142,7 @@ async function cmdReview(rest, flags, cfg) {
   const prompt = REVIEW_PROMPT(diff, rest.join(' '));
   const runs = await Promise.all(agents.map((a) => callAndLog(a, {
     prompt, model: a === 'gemini' ? (flags['gemini-model'] || 'neon') : (flags['claude-model'] || 'sonnet'), cwd: flags.cwd,
-  }, { from: 'user', category: 'review', tag: flags.tag }, cfg)));
+  }, { from: 'user', category: 'review', tag: flags.tag, thread: flags.thread || null }, cfg)));
   if (flags.json) {
     process.stdout.write(JSON.stringify(runs.map(({ res, rec }) => ({ ...res, stderr: undefined, record: rec })), null, 2) + '\n');
   } else {
@@ -254,12 +255,185 @@ function cmdConfig(rest) {
   console.log(JSON.stringify({ file: configPath(), ledger: ledgerPath(), user: readUserConfig(), effective: loadConfig() }, null, 2));
 }
 
-const HELP = `tandem â€” Claude Code + Gemini (Antigravity) as one team
+const PIN_CATEGORIES = new Set([...RULES.map((r) => r.category), 'trivial', 'general']);
 
-  tandem ask <gemini|claude> "prompt"   one call  [--model m] [--edit] [--file f] [--continue id] [--json]
-  tandem route "task"                   who should do this? (no tokens spent)
-  tandem run "task"                     route + call, falls back to the other agent on failure
-  tandem review [--agent gemini|claude|both] [--staged] [--base ref]   review git diff
+function validateModel(agent, model) {
+  if (agent === 'claude') {
+    if (!Object.hasOwn(CLAUDE_ALIASES, model)) {
+      throw new Error(`Unknown claude model "${model}". Aliases: ${Object.keys(CLAUDE_ALIASES).join(', ')}`);
+    }
+    return;
+  }
+  if (!Object.hasOwn(GEMINI_ALIASES, model) && !/^[a-z0-9.-]+$/.test(model)) {
+    throw new Error(`Unknown gemini model "${model}". Aliases: ${Object.keys(GEMINI_ALIASES).join(', ')} (or any slug matching /^[a-z0-9.-]+$/)`);
+  }
+}
+
+function savePins(mutate) {
+  const user = readUserConfig();
+  const pins = { ...(user.routing?.pins || {}) };
+  mutate(pins);
+  user.routing = { ...(user.routing || {}), pins };
+  saveUserConfig(user);
+  return pins;
+}
+
+function cmdPrefer(rest, flags, cfg) {
+  if (!rest.length) {
+    if (flags.json) return void process.stdout.write(JSON.stringify(cfg.defaults, null, 2) + '\n');
+    console.log(`claude  ${c.cyan(cfg.defaults.claudeModel)}  ${c.dim(`→ ${resolveClaudeModel(cfg.defaults.claudeModel)}`)}`);
+    console.log(`gemini  ${c.cyan(cfg.defaults.geminiModel)}  ${c.dim(`→ ${resolveGeminiModel(cfg.defaults.geminiModel)}`)}`);
+    return;
+  }
+  const [agent, model] = rest;
+  if ((agent !== 'claude' && agent !== 'gemini') || !model) throw new Error('Usage: tandem prefer [claude|gemini <model>]');
+  validateModel(agent, model);
+  const key = agent === 'claude' ? 'defaults.claudeModel' : 'defaults.geminiModel';
+  setConfigValue(key, model);
+  const resolved = agent === 'claude' ? resolveClaudeModel(model) : resolveGeminiModel(model);
+  console.log(`${key} = ${model}${resolved && resolved !== model ? c.dim(` (${resolved})`) : ''}`);
+}
+
+function cmdPin(rest, flags, cfg) {
+  const pins = cfg.routing?.pins || {};
+  if (!rest.length && !flags.clear) {
+    if (flags.json) return void process.stdout.write(JSON.stringify(pins, null, 2) + '\n');
+    const entries = Object.entries(pins);
+    if (!entries.length) return void console.log(c.dim('No pins set. Use: tandem pin <category> <agent:model>'));
+    console.log(table(entries.map(([cat, val]) => [cat, val]), ['category', 'pin']));
+    return;
+  }
+  const [category, spec] = rest;
+  if (!category || !PIN_CATEGORIES.has(category)) {
+    throw new Error(`Unknown category "${category || ''}". Categories: ${[...PIN_CATEGORIES].join(', ')}`);
+  }
+  if (flags.clear) {
+    savePins((p) => { delete p[category]; });
+    console.log(`Cleared pin for ${category}`);
+    return;
+  }
+  if (!spec) throw new Error('Usage: tandem pin [<category> <agent:model> | <category> --clear]');
+  const parsed = parsePin(spec);
+  validateModel(parsed.agent, parsed.model);
+  const value = `${parsed.agent}:${parsed.model}`;
+  savePins((p) => { p[category] = value; });
+  console.log(`routing.pins.${category} = ${value}`);
+}
+
+async function cmdModels(rest, flags, cfg) {
+  const defC = cfg.defaults?.claudeModel;
+  const defG = cfg.defaults?.geminiModel;
+  const rows = [
+    ...Object.entries(CLAUDE_ALIASES).map(([a, s]) => ['claude', `${c.cyan(a)}${a === defC ? ` ${c.yellow('★')}` : ''}`, s]),
+    ...Object.entries(GEMINI_ALIASES).map(([a, s]) => ['gemini', `${c.cyan(a)}${a === defG ? ` ${c.yellow('★')}` : ''}`, s]),
+  ];
+  if (defG && !Object.hasOwn(GEMINI_ALIASES, defG)) {
+    rows.push(['gemini', `${c.cyan(defG)} ${c.yellow('★')}`, defG]);
+  }
+  const pins = cfg.routing?.pins || {};
+  let live = null;
+  if (flags.live) {
+    const bin = findAgy(cfg);
+    if (!bin) live = 'agy not found';
+    else {
+      const r = await spawnRun(bin, ['models'], { timeoutMs: 15_000 });
+      live = (r.stdout || r.stderr || `agy exited ${r.code}`).trim();
+    }
+  }
+  if (flags.json) {
+    process.stdout.write(JSON.stringify({ defaults: cfg.defaults, aliases: { claude: CLAUDE_ALIASES, gemini: GEMINI_ALIASES }, pins, ...(live != null ? { live } : {}) }, null, 2) + '\n');
+    return;
+  }
+  console.log(table(rows, ['agent', 'alias', 'model']));
+  const pinRows = Object.entries(pins);
+  if (pinRows.length) {
+    console.log('\n' + c.bold('Pins'));
+    console.log(table(pinRows, ['category', 'pin']));
+  } else {
+    console.log('\n' + c.dim('Pins: none (set with: tandem pin <category> <agent:model>)'));
+  }
+  if (live != null) {
+    console.log('\n' + c.bold('Live (agy models)'));
+    console.log(live);
+  }
+}
+
+async function cmdShow(rest, flags) {
+  const records = readRecords();
+  const target = rest[0] || 'last';
+  const maxChars = flags.max == null ? 4000 : Number(flags.max);
+  if (!Number.isFinite(maxChars) || maxChars < 0) throw new Error('--max must be a non-negative number');
+
+  let selected;
+  let threadId = null;
+  if (target.startsWith('thread:')) {
+    threadId = target.slice('thread:'.length);
+    if (!threadId) throw new Error('Usage: tandem show thread:<id>');
+    selected = records.filter((r) => r.thread === threadId).sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
+    if (!selected.length) throw new Error(`No records found for thread "${threadId}"`);
+  } else if (target === 'last') {
+    if (!records.length) throw new Error('Ledger is empty.');
+    selected = [records.at(-1)];
+  } else {
+    const exact = records.find((r) => r.id === target);
+    if (exact) selected = [exact];
+    else {
+      const hits = records.filter((r) => r.id?.startsWith(target));
+      if (hits.length === 1) selected = hits;
+      else if (hits.length > 1) throw new Error(`Ambiguous ledger id prefix "${target}" (${hits.length} matches)`);
+      else throw new Error(`No ledger record found for "${target}"`);
+    }
+  }
+
+  const { readTranscript } = await import('./transcripts.js');
+  const items = selected.map((rec) => ({ rec, transcript: readTranscript(rec, { maxChars }) }));
+  if (flags.json) {
+    const payload = threadId
+      ? { thread: threadId, records: items.map(({ rec, transcript }) => ({ record: rec, transcript })) }
+      : { record: items[0].rec, transcript: items[0].transcript };
+    process.stdout.write(JSON.stringify(payload, null, 2) + '\n');
+    return;
+  }
+
+  for (let i = 0; i < items.length; i++) {
+    const { rec, transcript } = items[i];
+    if (i > 0) console.log('\n' + c.dim('─'.repeat(60)) + '\n');
+    const color = rec.status === 'ok' ? c.green : rec.status === 'denied' ? c.yellow : c.red;
+    console.log(`${c.dim(rec.ts.replace('T', ' ').slice(0, 19))}  ${rec.from} → ${c.bold(rec.to)} ${c.cyan(rec.model || rec.to)}  ${color(rec.status)}  ${tok(rec.usage?.total)} tok${rec.thread ? c.dim(`  thread:${rec.thread}`) : ''}`);
+    console.log(c.dim(`resume: ${transcript.resume || '(none)'}`));
+    if (!transcript.found) {
+      console.log(c.yellow(`Transcript not found${transcript.path ? ` (${transcript.path})` : ''}.`));
+      continue;
+    }
+    if (!transcript.messages.length) {
+      console.log(c.dim('(transcript has no displayable messages)'));
+      continue;
+    }
+    for (const m of transcript.messages) {
+      if (m.role === 'user') {
+        console.log(`\n${c.cyan('› user')}`);
+        console.log(m.text);
+      } else if (m.role === 'assistant') {
+        console.log(`\n${c.green('‹ assistant')}${m.model ? ` ${c.dim(m.model)}` : ''}`);
+        console.log(m.text);
+      } else {
+        console.log(`\n${c.dim('· tool')}`);
+        console.log(c.dim(m.text));
+      }
+    }
+  }
+}
+
+const HELP = `tandem — Claude Code + Gemini (Antigravity) as one team
+
+  tandem ask <gemini|claude> "prompt"   one call  [--model m] [--edit] [--file f] [--continue id] [--thread id] [--lead a] [--json]
+  tandem route "task"                   who should do this? (no tokens spent) [--lead a]
+  tandem run "task"                     route + call, falls back to the other agent on failure [--thread id] [--lead a]
+  tandem review [--agent gemini|claude|both] [--staged] [--base ref] [--thread id]   review git diff
+  tandem show [last|<id>|thread:<id>]   render an exchange from its native transcript [--max 4000] [--json]
+  tandem prefer [claude|gemini <model>] view or set default models
+  tandem pin [<cat> <agent:model>|--clear]   view, set or clear per-category routing pins
+  tandem models [--live]                list aliases → slugs, defaults (★) and pins
   tandem log [--n 20]                   who talked to whom, tokens, savings
   tandem stats                          totals, savings, plan usage
   tandem usage [--refresh-claude]       5h + weekly plan windows for Claude and Gemini
@@ -273,7 +447,7 @@ const HELP = `tandem â€” Claude Code + Gemini (Antigravity) as one team
   tandem mcp [--expose gemini|claude|both]   MCP server so agents call each other as tools
   tandem config [set <key> <value>|path]
 
-Gemini model aliases: flash, flash-low, hydrogen, orchestrator, neon, neon-high, argon (or any agy slug).
+Gemini model aliases: flash, flash-low, hydrogen, orchestrator (Neon plans, Hydrogen executes), neon, neon-high, argon (or any agy slug).
 Claude model aliases: haiku, sonnet, opus.`;
 
 export async function main(argv) {
@@ -285,6 +459,10 @@ export async function main(argv) {
     case 'route': return cmdRoute(rest, flags, cfg);
     case 'run': return cmdRun(rest, flags, cfg);
     case 'review': return cmdReview(rest, flags, cfg);
+    case 'prefer': return cmdPrefer(rest, flags, cfg);
+    case 'pin': return cmdPin(rest, flags, cfg);
+    case 'models': return cmdModels(rest, flags, cfg);
+    case 'show': return cmdShow(rest, flags, cfg);
     case 'stats': return cmdStats(rest, flags, cfg);
     case 'budget': return cmdBudget(rest, flags, cfg);
     case 'usage': return cmdUsage(rest, flags, cfg);
