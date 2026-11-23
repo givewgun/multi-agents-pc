@@ -122,6 +122,9 @@ New project? Copy `AGENTS.md`, `CLAUDE.md`, `scripts/`, `handoffs/TEMPLATE.md`, 
 # follow-up in same Gemini conversation
 .\scripts\ask-gemini.ps1 -Prompt "Also cover edge cases" -Continue <conversation_id>
 
+# Claude -> Gemini diff review (read-only git commands are allow-listed)
+.\scripts\ask-gemini.ps1 -Prompt "Run git diff and review the uncommitted changes for bugs. file:line findings only." -Model gemini-4-neon-medium
+
 # Gemini -> Claude (review)
 .\scripts\ask-claude.ps1 -Prompt "Review uncommitted diff for bugs. Findings only, file:line."
 .\scripts\ask-claude.ps1 -PromptFile handoffs\inbox\task.md -Model opus

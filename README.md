@@ -13,4 +13,6 @@ Claude Code + Google Gemini (Antigravity) working as one team on this PC.
 1. Install Antigravity CLI: `irm https://antigravity.google/cli/install.ps1 | iex`
 2. Open a new terminal, run `agy`, sign in with your AI Pro Google account, trust this folder. Run `/usage` to confirm Pro quota.
 3. Run `claude` in a terminal and `/login` (headless `claude -p` uses its own login, separate from the desktop app).
-4. Test: `.\scripts\ask-gemini.ps1 -Prompt "Reply: bridge ok"` and `.\scripts\ask-claude.ps1 -Prompt "Reply: bridge ok" -Model haiku`
+4. Optional: let headless Gemini run read-only git. Add to `~/.gemini/antigravity-cli/settings.json`:
+   `"permissions": {"allow": ["command(git status)", "command(git diff)", "command(git log)", "command(git show)", "command(git blame)", "command(git ls-files)"], "deny": ["command(regex:git .*--output.*)", "command(regex:git .*--ext-diff.*)"]}`
+5. Test: `.\scripts\ask-gemini.ps1 -Prompt "Reply: bridge ok"` and `.\scripts\ask-claude.ps1 -Prompt "Reply: bridge ok" -Model haiku`
