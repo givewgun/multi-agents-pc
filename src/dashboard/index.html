@@ -1,0 +1,1413 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tandem — local dashboard</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --surface-2: #f1f4f8;
+    --border: #dfe4ec;
+    --text: #151922;
+    --muted: #5d6778;
+    --claude: #c85a32;
+    --claude-soft: rgba(200, 90, 50, 0.13);
+    --gemini: #2563eb;
+    --gemini-soft: rgba(37, 99, 235, 0.12);
+    --user: #475569;
+    --user-soft: rgba(71, 85, 105, 0.12);
+    --green: #15803d;
+    --green-soft: rgba(21, 128, 61, 0.12);
+    --amber: #b45309;
+    --amber-soft: rgba(180, 83, 9, 0.13);
+    --red: #b91c1c;
+    --red-soft: rgba(185, 28, 28, 0.12);
+    --orange: #c2410c;
+    --orange-soft: rgba(194, 65, 12, 0.13);
+    --purple: #7e22ce;
+    --purple-soft: rgba(126, 34, 206, 0.12);
+    --shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface-2: #1c232d;
+      --border: #2c3543;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --claude: #e87a52;
+      --claude-soft: rgba(232, 122, 82, 0.18);
+      --gemini: #58a6ff;
+      --gemini-soft: rgba(88, 166, 255, 0.16);
+      --user: #94a3b8;
+      --user-soft: rgba(148, 163, 184, 0.16);
+      --green: #3fb950;
+      --green-soft: rgba(63, 185, 80, 0.16);
+      --amber: #d29922;
+      --amber-soft: rgba(210, 153, 34, 0.18);
+      --red: #f85149;
+      --red-soft: rgba(248, 81, 73, 0.18);
+      --orange: #fb923c;
+      --orange-soft: rgba(251, 146, 60, 0.18);
+      --purple: #c084fc;
+      --purple-soft: rgba(192, 132, 252, 0.18);
+      --shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    }
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    line-height: 1.45;
+    overflow-x: clip;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 20px 16px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mono {
+    font-family: var(--mono);
+  }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.9em;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 1px 5px;
+  }
+
+  /* Header */
+  header.topbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .brand h1 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .brand .sub {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 16px;
+    min-width: 0;
+  }
+
+  .status-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--green);
+    flex-shrink: 0;
+  }
+
+  .live-dot.stale {
+    background: var(--amber);
+  }
+
+  .live-dot.err {
+    background: var(--red);
+  }
+
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    color: var(--text);
+    cursor: pointer;
+    user-select: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 5px 10px;
+  }
+
+  .toggle input {
+    margin: 0;
+    accent-color: var(--gemini);
+    cursor: pointer;
+  }
+
+  /* Alert Banner */
+  .alert-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--red-soft);
+    border: 1px solid var(--red);
+    color: var(--red);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .alert-banner[hidden] {
+    display: none;
+  }
+
+  /* Cards & Sections */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: var(--shadow);
+    min-width: 0;
+  }
+
+  .card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px 12px;
+    margin-bottom: 12px;
+  }
+
+  .card-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+
+  .card-note {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 36px 18px;
+  }
+
+  .empty-state[hidden] {
+    display: none;
+  }
+
+  .empty-state h2 {
+    margin: 0 0 8px;
+    font-size: 17px;
+  }
+
+  .empty-state p {
+    margin: 0 auto 14px;
+    max-width: 520px;
+    color: var(--muted);
+  }
+
+  .empty-cmds {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  /* KPI Grid */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+    min-width: 0;
+  }
+
+  .kpi-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: baseline;
+  }
+
+  .kpi-value {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    margin-bottom: 4px;
+  }
+
+  .kpi-value.accent-green {
+    color: var(--green);
+  }
+
+  .kpi-sub {
+    font-size: 12px;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+
+  /* Budget Meters */
+  .budget-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .budget-item {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .budget-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .budget-name {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .budget-figures {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  .meter-track {
+    width: 100%;
+    height: 9px;
+    border-radius: 999px;
+    background: var(--border);
+    overflow: hidden;
+  }
+
+  .meter-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 220ms ease;
+  }
+
+  .meter-fill.green { background: var(--green); }
+  .meter-fill.amber { background: var(--amber); }
+  .meter-fill.red { background: var(--red); }
+
+  .budget-unset {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* Visuals 2-col row */
+  .viz-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: 16px;
+  }
+
+  .svg-box {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .svg-box svg {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .swatch {
+    width: 9px;
+    height: 9px;
+    border-radius: 3px;
+    display: inline-block;
+  }
+
+  /* By Model Table */
+  .model-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .model-table th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    padding: 0 10px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .model-table th.r,
+  .model-table td.r {
+    text-align: right;
+  }
+
+  .model-table td {
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  .model-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .model-name {
+    font-weight: 600;
+    word-break: break-word;
+  }
+
+  /* Recent Timeline */
+  .timeline {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tl-head,
+  .tl-row {
+    display: grid;
+    grid-template-columns: 90px 124px minmax(96px, 1.2fr) 78px 60px 68px minmax(102px, 0.9fr);
+    gap: 8px 10px;
+    align-items: center;
+    padding: 8px 10px;
+  }
+
+  .tl-head {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tl-head .r,
+  .tl-row .r {
+    text-align: right;
+  }
+
+  .tl-item {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tl-item:last-child {
+    border-bottom: none;
+  }
+
+  .tl-row {
+    font-size: 13px;
+    min-width: 0;
+  }
+
+  .tl-item.has-err .tl-row {
+    cursor: help;
+    border-left: 3px solid var(--red);
+    padding-left: 7px;
+  }
+
+  .tl-item.has-err .tl-row:hover {
+    background: var(--surface-2);
+  }
+
+  .tl-err-detail {
+    display: none;
+    margin: 0 10px 10px 10px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    background: var(--red-soft);
+    color: var(--red);
+    font-family: var(--mono);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+
+  .tl-item.open .tl-err-detail {
+    display: block;
+  }
+
+  .tl-time {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .tl-route {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .agent-tag {
+    font-weight: 650;
+  }
+
+  .agent-claude { color: var(--claude); }
+  .agent-gemini { color: var(--gemini); }
+  .agent-user { color: var(--user); }
+
+  .tl-model {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .tl-model-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+
+  .tag-chip {
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 0 5px;
+    line-height: 1.5;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1.35;
+    width: fit-content;
+    justify-self: start;
+  }
+
+  .pill-ok { background: var(--green-soft); color: var(--green); }
+  .pill-denied { background: var(--amber-soft); color: var(--amber); }
+  .pill-timeout { background: var(--amber-soft); color: var(--amber); }
+  .pill-quota { background: var(--orange-soft); color: var(--orange); }
+  .pill-auth { background: var(--purple-soft); color: var(--purple); }
+  .pill-missing { background: var(--user-soft); color: var(--user); }
+  .pill-error { background: var(--red-soft); color: var(--red); }
+
+  .val-saved { color: var(--green); font-weight: 600; }
+  .val-cost { color: var(--text); }
+  .val-muted { color: var(--muted); }
+
+  [hidden] {
+    display: none !important;
+  }
+
+  /* Responsive breakpoints down to 380px with zero horizontal overflow */
+  @media (max-width: 920px) {
+    .viz-grid {
+      grid-template-columns: 1fr;
+    }
+    .budget-list {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 820px) {
+    .kpi-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .tl-head {
+      display: none;
+    }
+    .tl-row {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "route status"
+        "model time"
+        "metrics value";
+      gap: 4px 10px;
+      padding: 10px 8px;
+    }
+    .tl-route { grid-area: route; }
+    .tl-status { grid-area: status; justify-self: end; }
+    .tl-model { grid-area: model; }
+    .tl-time { grid-area: time; text-align: right; }
+    .tl-metrics {
+      grid-area: metrics;
+      display: flex;
+      gap: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .tl-dur, .tl-tok {
+      display: inline;
+    }
+    .tl-val { grid-area: value; text-align: right; font-size: 12px; }
+  }
+
+  @media (min-width: 821px) {
+    .tl-metrics {
+      display: contents;
+    }
+  }
+
+  @media (max-width: 680px) {
+    .model-table thead {
+      display: none;
+    }
+    .model-table,
+    .model-table tbody,
+    .model-table tr,
+    .model-table td {
+      display: block;
+      width: 100%;
+    }
+    .model-table tr {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .model-table tbody tr:last-child {
+      border-bottom: none;
+    }
+    .model-table td {
+      border-bottom: none;
+      padding: 0;
+      text-align: left !important;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .model-table td.model-cell {
+      grid-column: 1 / -1;
+      padding-bottom: 2px;
+    }
+    .model-table td:not(.model-cell)::before {
+      content: attr(data-label);
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .wrap {
+      padding: 14px 12px 32px;
+      gap: 12px;
+    }
+    .card {
+      padding: 13px 12px;
+    }
+  }
+
+  @media (max-width: 420px) {
+    .kpi-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- 1. Header -->
+    <header class="topbar">
+      <div class="brand">
+        <h1>tandem</h1>
+        <span class="sub">Claude + Gemini team ledger</span>
+      </div>
+      <div class="controls">
+        <span class="status-meta" id="poll-status">
+          <span class="live-dot" id="live-dot" aria-hidden="true"></span>
+          <span id="last-updated">Loading…</span>
+        </span>
+        <label class="toggle">
+          <input type="checkbox" id="hide-bench" checked>
+          <span>hide benchmark runs</span>
+        </label>
+      </div>
+    </header>
+
+    <!-- Quota Banner -->
+    <div class="alert-banner" id="quota-banner" role="alert" hidden></div>
+
+    <!-- Empty State -->
+    <section class="card empty-state" id="empty-state" hidden>
+      <h2>No calls recorded yet</h2>
+      <p id="empty-desc">Run a task with tandem to start tracking Claude and Gemini handoffs, token flow, savings, and budgets.</p>
+      <div class="empty-cmds">
+        <code>tandem run "summarize this repo"</code>
+        <code>tandem ask gemini "review src/"</code>
+      </div>
+    </section>
+
+    <!-- 2. KPI Tiles -->
+    <section class="kpi-grid" id="kpi-section" aria-label="Key metrics">
+      <div class="kpi">
+        <div class="kpi-label">Total calls</div>
+        <div class="kpi-value num" id="kpi-calls">—</div>
+        <div class="kpi-sub num" id="kpi-calls-sub"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Claude usage offloaded (7d) <span>· Claude-equivalent, est.</span></div>
+        <div class="kpi-value num accent-green" id="kpi-offloaded">—</div>
+        <div class="kpi-sub num" id="kpi-offloaded-sub"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Claude spent (7d)</div>
+        <div class="kpi-value num" id="kpi-claude-spent">—</div>
+        <div class="kpi-sub num" id="kpi-claude-spent-sub"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Gemini share of work</div>
+        <div class="kpi-value num" id="kpi-share">—</div>
+        <div class="kpi-sub" id="kpi-share-sub"></div>
+      </div>
+    </section>
+
+    <!-- 3. Budget -->
+    <section class="card" id="budget-section">
+      <div class="card-head">
+        <h2 class="card-title">Budget</h2>
+        <span class="card-note" id="budget-warn-note"></span>
+      </div>
+      <div class="budget-list" id="budget-list"></div>
+    </section>
+
+    <!-- 4. Flow Diagram & 5. Daily Chart -->
+    <div class="viz-grid" id="viz-section">
+      <section class="card">
+        <div class="card-head">
+          <h2 class="card-title">Call flow</h2>
+          <span class="card-note">calls · tokens (line width scales with calls)</span>
+        </div>
+        <div class="svg-box" id="flow-box"></div>
+        <div class="legend">
+          <span class="legend-item"><span class="swatch" style="background: var(--user)"></span>User</span>
+          <span class="legend-item"><span class="swatch" style="background: var(--claude)"></span>Claude</span>
+          <span class="legend-item"><span class="swatch" style="background: var(--gemini)"></span>Gemini</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2 class="card-title">Daily calls (last 14 days)</h2>
+          <span class="card-note">UTC calendar days</span>
+        </div>
+        <div class="svg-box" id="daily-box"></div>
+        <div class="legend">
+          <span class="legend-item"><span class="swatch" style="background: var(--gemini)"></span>OK</span>
+          <span class="legend-item"><span class="swatch" style="background: var(--red)"></span>Failed / non-OK</span>
+        </div>
+      </section>
+    </div>
+
+    <!-- 6. By Model Table -->
+    <section class="card" id="model-section">
+      <div class="card-head">
+        <h2 class="card-title">By model</h2>
+        <span class="card-note" id="model-note"></span>
+      </div>
+      <table class="model-table">
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th class="r">Calls</th>
+            <th class="r">OK %</th>
+            <th class="r">Tokens</th>
+            <th class="r">Avg time</th>
+            <th class="r">Claude-equiv</th>
+          </tr>
+        </thead>
+        <tbody id="model-tbody"></tbody>
+      </table>
+    </section>
+
+    <!-- 7. Recent Calls Timeline -->
+    <section class="card" id="recent-section">
+      <div class="card-head">
+        <h2 class="card-title">Recent calls</h2>
+        <span class="card-note">latest 50 · hover (or tap on mobile) failed rows for error details</span>
+      </div>
+      <div class="timeline" id="recent-timeline"></div>
+    </section>
+  </div>
+
+<script>
+(() => {
+  'use strict';
+
+  const POLL_MS = 5000;
+  const $ = (id) => document.getElementById(id);
+
+  const hideBenchEl = $('hide-bench');
+  const liveDotEl = $('live-dot');
+  const lastUpdatedEl = $('last-updated');
+  const quotaBannerEl = $('quota-banner');
+  const emptyStateEl = $('empty-state');
+  const emptyDescEl = $('empty-desc');
+  const kpiSectionEl = $('kpi-section');
+  const vizSectionEl = $('viz-section');
+  const modelSectionEl = $('model-section');
+  const recentSectionEl = $('recent-section');
+
+  let reqSeq = 0;
+  let lastData = null;
+  let expandedIds = new Set();
+
+  function esc(v) {
+    return String(v ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function fmtUsd(n) {
+    if (n == null || Number.isNaN(n)) return '—';
+    const num = Number(n);
+    if (num === 0) return '$0.00';
+    const sign = num < 0 ? '-' : '';
+    const abs = Math.abs(num);
+    if (abs < 1) return `${sign}$${abs.toFixed(4)}`;
+    return `${sign}$${abs.toFixed(2)}`;
+  }
+
+  function fmtTok(n) {
+    if (n == null || Number.isNaN(n)) return '—';
+    const num = Number(n);
+    if (num >= 1e6) return `${(num / 1e6).toFixed(1)}M`;
+    if (num >= 1e3) return `${(num / 1e3).toFixed(1)}k`;
+    return String(Math.round(num));
+  }
+
+  function fmtMs(n) {
+    if (n == null || Number.isNaN(n)) return '—';
+    const num = Number(n);
+    if (num >= 60_000) return `${(num / 60_000).toFixed(1)}m`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}s`;
+    return `${Math.round(num)}ms`;
+  }
+
+  function fmtPct(r) {
+    if (r == null || Number.isNaN(r)) return '—';
+    return `${Math.round(Number(r) * 100)}%`;
+  }
+
+  function fmtClock(iso) {
+    const d = iso ? new Date(iso) : new Date();
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  }
+
+  function fmtRowTime(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return esc(iso);
+    const now = new Date();
+    const sameDay =
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate();
+    if (sameDay) {
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    }
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hm = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    return `${mm}-${dd} ${hm}`;
+  }
+
+  function agentClass(name) {
+    if (name === 'claude') return 'agent-claude';
+    if (name === 'gemini') return 'agent-gemini';
+    return 'agent-user';
+  }
+
+  function statusClass(status) {
+    const known = new Set(['ok', 'denied', 'timeout', 'quota', 'auth', 'missing', 'error']);
+    return known.has(status) ? `pill-${status}` : 'pill-error';
+  }
+
+  function renderKpis(data) {
+    const t = data.totals || { calls: 0, claude: {}, gemini: {} };
+    const sv = data.savings || {};
+    const totalTokens = (t.claude?.tokens || 0) + (t.gemini?.tokens || 0);
+
+    $('kpi-calls').textContent = String(t.calls ?? 0);
+    $('kpi-calls-sub').textContent =
+      `${t.claude?.calls || 0} Claude · ${t.gemini?.calls || 0} Gemini · ${fmtTok(totalTokens)} tok`;
+
+    $('kpi-offloaded').textContent = fmtUsd(sv.offloadedWeekUsd ?? 0);
+    $('kpi-offloaded-sub').textContent =
+      `all time ${fmtUsd(sv.offloadedAllUsd ?? 0)}${sv.baseline ? ` · baseline ${sv.baseline}` : ''}`;
+
+    $('kpi-claude-spent').textContent = fmtUsd(sv.claudeWeekUsd ?? 0);
+    $('kpi-claude-spent-sub').textContent = `all time ${fmtUsd(t.claude?.costUsd ?? 0)}`;
+
+    $('kpi-share').textContent = fmtPct(sv.offloadShareWeek);
+    $('kpi-share-sub').textContent =
+      sv.offloadShareWeek == null ? 'no Claude-equivalent work this week' : 'of Claude-equiv work this week';
+  }
+
+  function renderBudget(data) {
+    const b = data.budget || {};
+    const warnAt = b.warnAt ?? 0.8;
+    $('budget-warn-note').textContent = `warn at ${fmtPct(warnAt)}`;
+
+    if (b.geminiLikelyLimited) {
+      const at = b.geminiQuotaHitAt ? fmtRowTime(b.geminiQuotaHitAt) : 'recently';
+      quotaBannerEl.hidden = false;
+      quotaBannerEl.innerHTML =
+        `<span><strong>Gemini quota likely limited</strong> — quota error hit at <span class="num" title="${esc(b.geminiQuotaHitAt || '')}">${esc(at)}</span>. Router prefers Claude for 5h.</span>`;
+    } else {
+      quotaBannerEl.hidden = true;
+      quotaBannerEl.innerHTML = '';
+    }
+
+    const meters = [
+      {
+        title: 'Claude 7d (USD)',
+        item: b.claudeWeek || { used: 0, cap: null, ratio: null },
+        usedText: (u) => fmtUsd(u),
+        capText: (c) => fmtUsd(c),
+        cmd: 'tandem budget set claude <usd>',
+      },
+      {
+        title: 'Gemini 5h (calls)',
+        item: b.gemini5h || { used: 0, cap: null, ratio: null },
+        usedText: (u) => `${u} calls`,
+        capText: (c) => `${c} calls`,
+        cmd: 'tandem budget set gemini-5h <n>',
+      },
+      {
+        title: 'Gemini 7d (calls)',
+        item: b.geminiWeek || { used: 0, cap: null, ratio: null },
+        usedText: (u) => `${u} calls`,
+        capText: (c) => `${c} calls`,
+        cmd: 'tandem budget set gemini-week <n>',
+      },
+    ];
+
+    $('budget-list').innerHTML = meters
+      .map((m) => {
+        const used = m.item.used ?? 0;
+        const cap = m.item.cap;
+        const ratio = m.item.ratio;
+
+        if (cap == null || ratio == null) {
+          return `
+            <div class="budget-item">
+              <div class="budget-row">
+                <span class="budget-name">${esc(m.title)}</span>
+                <span class="budget-figures num">${esc(m.usedText(used))} used</span>
+              </div>
+              <div class="budget-unset">no budget set — <code>tandem budget set …</code> <span>(${esc(m.cmd)})</span></div>
+            </div>
+          `;
+        }
+
+        const color = ratio >= 1 ? 'red' : ratio >= warnAt ? 'amber' : 'green';
+        const widthPct = Math.max(0, Math.min(100, (ratio || 0) * 100));
+        return `
+          <div class="budget-item">
+            <div class="budget-row">
+              <span class="budget-name">${esc(m.title)}</span>
+              <span class="budget-figures num">${esc(m.usedText(used))} / ${esc(m.capText(cap))} (${esc(fmtPct(ratio))})</span>
+            </div>
+            <div class="meter-track" role="progressbar" aria-label="${esc(m.title)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(widthPct)}">
+              <div class="meter-fill ${color}" style="width: ${widthPct.toFixed(1)}%"></div>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+  }
+
+  function rectBorderPoint(node, tx, ty, pad) {
+    const dx = tx - node.x;
+    const dy = ty - node.y;
+    if (dx === 0 && dy === 0) return { x: node.x, y: node.y };
+    const hw = node.w / 2 + pad;
+    const hh = node.h / 2 + pad;
+    const sx = dx !== 0 ? hw / Math.abs(dx) : Infinity;
+    const sy = dy !== 0 ? hh / Math.abs(dy) : Infinity;
+    const s = Math.min(sx, sy);
+    return { x: node.x + dx * s, y: node.y + dy * s };
+  }
+
+  function renderFlow(data) {
+    const edges = data.edges || {};
+    const entries = Object.entries(edges);
+    const t = data.totals || { claude: {}, gemini: {} };
+
+    const W = 560;
+    const H = 285;
+    const NODES = {
+      user: { id: 'user', label: 'User', x: 280, y: 60, w: 122, h: 44, stroke: 'var(--user)', fill: 'var(--user-soft)', sub: 'origin' },
+      claude: { id: 'claude', label: 'Claude', x: 132, y: 222, w: 136, h: 52, stroke: 'var(--claude)', fill: 'var(--claude-soft)', sub: `${t.claude?.calls || 0} calls` },
+      gemini: { id: 'gemini', label: 'Gemini', x: 428, y: 222, w: 136, h: 52, stroke: 'var(--gemini)', fill: 'var(--gemini-soft)', sub: `${t.gemini?.calls || 0} calls` },
+    };
+
+    const colorFor = (target) =>
+      target === 'claude' ? 'var(--claude)' : target === 'gemini' ? 'var(--gemini)' : 'var(--user)';
+    const markerFor = (target) =>
+      target === 'claude' ? 'url(#arr-claude)' : target === 'gemini' ? 'url(#arr-gemini)' : 'url(#arr-user)';
+
+    const maxCalls = Math.max(1, ...entries.map(([, b]) => b.calls || 0));
+
+    const arrowSvg = [];
+    const labelSvg = [];
+
+    for (const [key, b] of entries) {
+      const parts = key.split('->');
+      const fromRaw = parts[0] || 'user';
+      const toRaw = parts[1] || 'gemini';
+      const src = NODES[fromRaw] || NODES.user;
+      const dst = NODES[toRaw] || NODES.user;
+      const unknown = !NODES[fromRaw] || !NODES[toRaw];
+
+      const calls = b.calls || 0;
+      const strokeW = 1.75 + (calls / maxCalls) * 3.75;
+      const color = colorFor(toRaw);
+      const marker = markerFor(toRaw);
+
+      const labelText = unknown
+        ? `${fromRaw}→${toRaw}: ${calls} · ${fmtTok(b.tokens || 0)}`
+        : `${calls} · ${fmtTok(b.tokens || 0)}`;
+      const pillW = Math.max(66, labelText.length * 6.8 + 14);
+      const pillH = 22;
+
+      let dPath;
+      let lx;
+      let ly;
+
+      if (src.id === dst.id) {
+        const dir = src.id === 'claude' ? -1 : src.id === 'gemini' ? 1 : 0;
+        if (dir === 0) {
+          const x1 = src.x - 22;
+          const x2 = src.x + 22;
+          const y0 = src.y - src.h / 2 - 4;
+          dPath = `M ${x1.toFixed(1)} ${y0.toFixed(1)} C ${(src.x - 36).toFixed(1)} ${(y0 - 32).toFixed(1)}, ${(src.x + 36).toFixed(1)} ${(y0 - 32).toFixed(1)}, ${x2.toFixed(1)} ${(y0 - 3).toFixed(1)}`;
+          lx = src.x;
+          ly = Math.max(15, y0 - 20);
+        } else {
+          const x0 = src.x + dir * (src.w / 2 + 4);
+          const y1 = src.y - 12;
+          const y2 = src.y + 12;
+          dPath = `M ${x0.toFixed(1)} ${y1.toFixed(1)} C ${(x0 + dir * 40).toFixed(1)} ${(y1 - 20).toFixed(1)}, ${(x0 + dir * 40).toFixed(1)} ${(y2 + 20).toFixed(1)}, ${(x0 + dir * 3).toFixed(1)} ${y2.toFixed(1)}`;
+          lx = x0 + dir * 28;
+          ly = src.y - 26;
+        }
+      } else {
+        const dx = dst.x - src.x;
+        const dy = dst.y - src.y;
+        const dist = Math.hypot(dx, dy) || 1;
+        const ux = dx / dist;
+        const uy = dy / dist;
+        const nx = -uy;
+        const ny = ux;
+
+        const hasReverse = Object.prototype.hasOwnProperty.call(edges, `${toRaw}->${fromRaw}`);
+        const bend = hasReverse ? 42 : 0;
+        const mx = (src.x + dst.x) / 2;
+        const my = (src.y + dst.y) / 2;
+        const cx = mx + nx * bend;
+        const cy = my + ny * bend;
+
+        const p0 = rectBorderPoint(src, cx, cy, 4);
+        const p2 = rectBorderPoint(dst, cx, cy, 7);
+
+        dPath = bend === 0
+          ? `M ${p0.x.toFixed(1)} ${p0.y.toFixed(1)} L ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`
+          : `M ${p0.x.toFixed(1)} ${p0.y.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+
+        lx = 0.25 * p0.x + 0.5 * cx + 0.25 * p2.x;
+        ly = 0.25 * p0.y + 0.5 * cy + 0.25 * p2.y;
+      }
+
+      lx = Math.max(pillW / 2 + 4, Math.min(W - pillW / 2 - 4, lx));
+      ly = Math.max(pillH / 2 + 4, Math.min(H - pillH / 2 - 4, ly));
+
+      const tip = `${key}: ${calls} calls (${b.ok || 0} ok, ${b.failed || 0} failed), ${fmtTok(b.tokens || 0)} tokens, avg ${fmtMs(calls ? (b.durationMs || 0) / calls : 0)}`;
+
+      arrowSvg.push(`
+        <path d="${dPath}" fill="none" stroke="${color}" stroke-width="${strokeW.toFixed(2)}" stroke-linecap="round" marker-end="${marker}">
+          <title>${esc(tip)}</title>
+        </path>
+      `);
+
+      labelSvg.push(`
+        <g>
+          <title>${esc(tip)}</title>
+          <rect x="${(lx - pillW / 2).toFixed(1)}" y="${(ly - pillH / 2).toFixed(1)}" width="${pillW.toFixed(1)}" height="${pillH}" rx="11" fill="var(--surface)" stroke="${color}" stroke-width="1.25" />
+          <text x="${lx.toFixed(1)}" y="${(ly + 4).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text)" class="num">${esc(labelText)}</text>
+        </g>
+      `);
+    }
+
+    const nodeSvg = Object.values(NODES).map((n) => {
+      const rx = n.h / 2;
+      const x = n.x - n.w / 2;
+      const y = n.y - n.h / 2;
+      return `
+        <g>
+          <rect x="${x}" y="${y}" width="${n.w}" height="${n.h}" rx="${rx}" fill="${n.fill}" stroke="${n.stroke}" stroke-width="2" />
+          <text x="${n.x}" y="${n.id === 'user' ? n.y + 5 : n.y - 2}" text-anchor="middle" font-size="14" font-weight="700" fill="var(--text)">${esc(n.label)}</text>
+          ${n.id === 'user' ? '' : `<text x="${n.x}" y="${n.y + 14}" text-anchor="middle" font-size="11" fill="var(--muted)" class="num">${esc(n.sub)}</text>`}
+        </g>
+      `;
+    }).join('');
+
+    $('flow-box').innerHTML = `
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Agent call flow diagram">
+        <defs>
+          <marker id="arr-claude" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="8.5" refY="5.5" orient="auto">
+            <path d="M 0 1.5 L 10 5.5 L 0 9.5 z" fill="var(--claude)" />
+          </marker>
+          <marker id="arr-gemini" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="8.5" refY="5.5" orient="auto">
+            <path d="M 0 1.5 L 10 5.5 L 0 9.5 z" fill="var(--gemini)" />
+          </marker>
+          <marker id="arr-user" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="8.5" refY="5.5" orient="auto">
+            <path d="M 0 1.5 L 10 5.5 L 0 9.5 z" fill="var(--user)" />
+          </marker>
+        </defs>
+        ${arrowSvg.join('')}
+        ${nodeSvg}
+        ${labelSvg.join('')}
+      </svg>
+    `;
+  }
+
+  function renderDaily(data) {
+    const byDay = data.byDay || {};
+    const baseStr = (data.generatedAt || new Date().toISOString()).slice(0, 10);
+    const baseMs = Date.parse(`${baseStr}T00:00:00Z`);
+
+    const days = [];
+    for (let i = 13; i >= 0; i--) {
+      const iso = new Date(baseMs - i * 86_400_000).toISOString().slice(0, 10);
+      const b = byDay[iso] || { calls: 0, ok: 0, failed: 0, tokens: 0 };
+      days.push({ date: iso, ...b });
+    }
+
+    const W = 540;
+    const H = 215;
+    const left = 36;
+    const right = 528;
+    const top = 22;
+    const bottom = 180;
+    const plotW = right - left;
+    const plotH = bottom - top;
+
+    const maxCalls = Math.max(0, ...days.map((d) => d.calls || 0));
+    const yTop = maxCalls <= 2 ? Math.max(1, maxCalls) : (maxCalls % 2 === 1 ? maxCalls + 1 : maxCalls);
+    const ticks = yTop === 1 ? [0, 1] : [0, yTop / 2, yTop];
+
+    const gridSvg = ticks.map((v) => {
+      const y = bottom - (v / yTop) * plotH;
+      return `
+        <line x1="${left}" y1="${y.toFixed(1)}" x2="${right}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-dasharray="${v === 0 ? 'none' : '3 3'}" />
+        <text x="${left - 6}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--muted)" class="num">${v}</text>
+      `;
+    }).join('');
+
+    const slotW = plotW / days.length;
+    const barW = Math.min(24, slotW * 0.65);
+
+    const barsSvg = days.map((d, i) => {
+      const cx = left + i * slotW + slotW / 2;
+      const x = cx - barW / 2;
+      const calls = d.calls || 0;
+      const ok = d.ok || 0;
+      const failed = Math.max(0, d.failed != null ? d.failed : calls - ok);
+
+      const okH = (ok / yTop) * plotH;
+      const failH = (failed / yTop) * plotH;
+      const totalH = ((ok + failed) / yTop) * plotH;
+      const yOk = bottom - okH;
+      const yFail = bottom - okH - failH;
+      const yTopBar = bottom - totalH;
+
+      const tip = `${d.date}: ${calls} calls (${ok} ok, ${failed} failed), ${fmtTok(d.tokens || 0)} tok`;
+
+      let rects = '';
+      if (ok > 0) {
+        rects += `<rect x="${x.toFixed(1)}" y="${yOk.toFixed(1)}" width="${barW.toFixed(1)}" height="${okH.toFixed(1)}" rx="${failed > 0 ? 0 : 2.5}" fill="var(--gemini)" />`;
+      }
+      if (failed > 0) {
+        rects += `<rect x="${x.toFixed(1)}" y="${yFail.toFixed(1)}" width="${barW.toFixed(1)}" height="${failH.toFixed(1)}" rx="2.5" fill="var(--red)" />`;
+      }
+      if (calls === 0) {
+        rects += `<rect x="${x.toFixed(1)}" y="${(bottom - 1.5).toFixed(1)}" width="${barW.toFixed(1)}" height="1.5" fill="var(--border)" />`;
+      }
+
+      return `
+        <g>
+          <title>${esc(tip)}</title>
+          ${rects}
+          ${calls > 0 ? `<text x="${cx.toFixed(1)}" y="${Math.max(12, yTopBar - 5).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--text)" class="num">${calls}</text>` : ''}
+          <text x="${cx.toFixed(1)}" y="${bottom + 18}" text-anchor="middle" font-size="10" fill="var(--muted)" class="num">${esc(d.date.slice(5))}</text>
+        </g>
+      `;
+    }).join('');
+
+    const emptyOverlay = maxCalls === 0
+      ? `<text x="${(left + right) / 2}" y="${top + plotH / 2}" text-anchor="middle" font-size="12" fill="var(--muted)">No calls in the last 14 days</text>`
+      : '';
+
+    $('daily-box').innerHTML = `
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Daily calls bar chart for the last 14 days">
+        ${gridSvg}
+        ${barsSvg}
+        ${emptyOverlay}
+      </svg>
+    `;
+  }
+
+  function renderModels(data) {
+    const entries = Object.entries(data.byModel || {}).sort(
+      (a, b) => (b[1].calls || 0) - (a[1].calls || 0) || (b[1].tokens || 0) - (a[1].tokens || 0)
+    );
+    $('model-note').textContent = `${entries.length} model${entries.length === 1 ? '' : 's'}`;
+
+    $('model-tbody').innerHTML = entries
+      .map(([model, b]) => {
+        const calls = b.calls || 0;
+        const okRate = calls ? (b.ok || 0) / calls : null;
+        const avgTime = calls ? (b.durationMs || 0) / calls : null;
+        return `
+          <tr>
+            <td class="model-cell"><span class="model-name mono">${esc(model)}</span></td>
+            <td class="r num" data-label="Calls">${calls}</td>
+            <td class="r num" data-label="OK %">${esc(fmtPct(okRate))}</td>
+            <td class="r num" data-label="Tokens">${esc(fmtTok(b.tokens || 0))}</td>
+            <td class="r num" data-label="Avg time">${esc(fmtMs(avgTime))}</td>
+            <td class="r num" data-label="Claude-equiv">${esc(fmtUsd(b.claudeEquivUsd || 0))}</td>
+          </tr>
+        `;
+      })
+      .join('');
+  }
+
+  function renderRecent(data) {
+    const recent = data.recent || [];
+    const tl = $('recent-timeline');
+    if (recent.length === 0) {
+      tl.innerHTML = '<div class="card-note" style="padding: 8px 0;">No recent calls.</div>';
+      return;
+    }
+
+    const head = `
+      <div class="tl-head">
+        <span>Time</span>
+        <span>Route</span>
+        <span>Model</span>
+        <span>Status</span>
+        <span class="r">Duration</span>
+        <span class="r">Tokens</span>
+        <span class="r">Value</span>
+      </div>
+    `;
+
+    const rows = recent.map((r, idx) => {
+      const rowKey = r.id || `${r.ts || ''}-${idx}`;
+      const isErr = r.status !== 'ok' && !!r.error;
+      const isOpen = isErr && expandedIds.has(rowKey);
+      const valHtml = r.to === 'gemini'
+        ? `<span class="${r.status === 'ok' ? 'val-saved' : 'val-muted'}">saved ≈${esc(fmtUsd(r.claudeEquivUsd ?? 0))}</span>`
+        : `<span class="val-cost">cost ≈${esc(fmtUsd(r.costUsd ?? 0))}</span>`;
+
+      const errTitle = isErr ? ` title="${esc(r.error)}"` : '';
+      const tagHtml = r.tag ? `<span class="tag-chip">${esc(r.tag)}</span>` : '';
+
+      return `
+        <div class="tl-item${isErr ? ' has-err' : ''}${isOpen ? ' open' : ''}" data-row-id="${esc(rowKey)}">
+          <div class="tl-row"${errTitle}>
+            <span class="tl-time num" title="${esc(r.ts || '')}">${esc(fmtRowTime(r.ts))}</span>
+            <span class="tl-route">
+              <span class="agent-tag ${agentClass(r.from)}">${esc(r.from || 'user')}</span>
+              <span aria-hidden="true">→</span>
+              <span class="agent-tag ${agentClass(r.to)}">${esc(r.to || '—')}</span>
+            </span>
+            <span class="tl-model">
+              <span class="tl-model-name mono" title="${esc(r.model || r.to || '')}">${esc(r.model || r.to || '—')}</span>
+              ${tagHtml}
+            </span>
+            <span class="tl-status">
+              <span class="pill ${statusClass(r.status)}"${errTitle}>${esc(r.status || 'unknown')}</span>
+            </span>
+            <div class="tl-metrics">
+              <span class="tl-dur r num">${esc(fmtMs(r.durationMs))}</span>
+              <span class="tl-tok r num">${esc(fmtTok(r.usage?.total ?? 0))} tok</span>
+            </div>
+            <span class="tl-val r num">${valHtml}</span>
+          </div>
+          ${isErr ? `<div class="tl-err-detail">${esc(r.error)}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+
+    tl.innerHTML = head + rows;
+  }
+
+  function render(data) {
+    lastData = data;
+    const isEmpty = !data.totals || data.totals.calls === 0;
+
+    renderBudget(data);
+
+    if (isEmpty) {
+      emptyStateEl.hidden = false;
+      emptyDescEl.textContent = hideBenchEl.checked
+        ? 'No non-benchmark calls recorded yet. Uncheck "hide benchmark runs" if you only ran benchmarks, or run a task with tandem.'
+        : 'Run a task with tandem to start tracking Claude and Gemini handoffs, token flow, savings, and budgets.';
+      kpiSectionEl.hidden = true;
+      vizSectionEl.hidden = true;
+      modelSectionEl.hidden = true;
+      recentSectionEl.hidden = true;
+    } else {
+      emptyStateEl.hidden = true;
+      kpiSectionEl.hidden = false;
+      vizSectionEl.hidden = false;
+      modelSectionEl.hidden = false;
+      recentSectionEl.hidden = false;
+      renderKpis(data);
+      renderFlow(data);
+      renderDaily(data);
+      renderModels(data);
+      renderRecent(data);
+    }
+
+    liveDotEl.className = 'live-dot';
+    lastUpdatedEl.textContent = `Updated ${fmtClock(data.generatedAt)}`;
+  }
+
+  async function refresh() {
+    const seq = ++reqSeq;
+    const endpoint = hideBenchEl.checked ? '/api/summary?exclude=bench' : '/api/summary';
+    try {
+      const res = await fetch(endpoint, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (seq !== reqSeq) return;
+      render(data);
+    } catch (err) {
+      if (seq !== reqSeq) return;
+      liveDotEl.className = lastData ? 'live-dot stale' : 'live-dot err';
+      lastUpdatedEl.textContent = lastData
+        ? `Updated ${fmtClock(lastData.generatedAt)} · retrying…`
+        : `Offline (${err?.message || 'error'})`;
+    }
+  }
+
+  $('recent-timeline').addEventListener('click', (e) => {
+    const item = e.target.closest('.tl-item.has-err');
+    if (!item) return;
+    const id = item.getAttribute('data-row-id');
+    if (!id) return;
+    if (expandedIds.has(id)) expandedIds.delete(id);
+    else expandedIds.add(id);
+    item.classList.toggle('open');
+  });
+
+  hideBenchEl.addEventListener('change', refresh);
+
+  refresh();
+  setInterval(refresh, POLL_MS);
+})();
+</script>
+</body>
+</html>
