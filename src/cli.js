@@ -9,7 +9,7 @@ import { route, RULES, parsePin } from './router.js';
 import { usd, tok, ms, pct, c, bar, table } from './format.js';
 import { VERSION } from './version.js';
 
-const BOOL = new Set(['edit', 'json', 'force', 'mcp', 'open', 'no-fallback', 'staged', 'help', 'version', 'quiet', 'dry-run', 'live', 'global', 'refresh-claude', 'clear']);
+const BOOL = new Set(['edit', 'json', 'force', 'mcp', 'open', 'no-fallback', 'staged', 'help', 'version', 'quiet', 'dry-run', 'live', 'global', 'refresh-claude', 'clear', 'team']);
 
 export function parseArgs(argv) {
   const out = { _: [], flags: {} };
@@ -460,6 +460,7 @@ const HELP = `tandem — Claude Code + Gemini (Antigravity) as one team
                                         warn | claude-plan | gemini-plan (USD/month, for value stats)
   tandem dashboard [--port 4777]        local web UI
   tandem bench [--models a,b] [--tasks x,y] [--repeat n]   benchmark models on graded tasks
+  tandem bench --team [--strategies a,b] [--tasks x,y] [--repeat n]   solo vs. team strategies on hard tasks
   tandem init [dir] [--mcp]             add AGENTS.md, CLAUDE.md, skills, rules to a project
   tandem init --global                  once per machine: Antigravity plugin, Claude skills/MCP, Stop hooks
   tandem doctor                         check installs, logins, permissions
@@ -502,7 +503,7 @@ export async function main(argv) {
       if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error(`Invalid --port "${flags.port}" (use 0–65535)`);
       return (await import('./dashboard/server.js')).startDashboard(port, cfg, flags);
     }
-    case 'bench': return (await import('./bench/run.js')).bench(flags, cfg);
+    case 'bench': return flags.team ? (await import('./bench/team.js')).teamBench(flags, cfg) : (await import('./bench/run.js')).bench(flags, cfg);
     default: throw new Error(`Unknown command "${cmd}". Run: tandem help`);
   }
 }
