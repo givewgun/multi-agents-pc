@@ -4,3 +4,5 @@ handoffs/log/
 .env
 .env.*
 tmp-init/
+*.tgz
+

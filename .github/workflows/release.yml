@@ -1,0 +1,101 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (verify & pack only, skip GitHub Release and npm publish)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Verify tag matches package.json version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "Tag v$TAG_VERSION does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Verify bin line endings & pack tarball
+        id: pack
+        run: |
+          node -e "const b = require('fs').readFileSync('bin/tandem.js'); if (b.includes(13)) throw new Error('bin/tandem.js contains CRLF');"
+          TGZ=$(npm pack --silent | tail -n 1)
+          echo "tarball=$TGZ" >> "$GITHUB_OUTPUT"
+          TMP=$(mktemp -d)
+          npm install --no-audit --no-fund --prefix "$TMP" "./$TGZ"
+          INSTALLED_VER=$("$TMP/node_modules/.bin/tandem" --version)
+          EXPECTED_VER=$(node -p "require('./package.json').version")
+          test "$INSTALLED_VER" = "$EXPECTED_VER"
+          "$TMP/node_modules/.bin/tandem" route "write unit tests"
+          rm -rf "$TMP"
+
+      - name: Upload tarball artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-tarball
+          path: ${{ steps.pack.outputs.tarball }}
+          retention-days: 7
+
+  github-release:
+    needs: verify
+    if: startsWith(github.ref, 'refs/tags/v') && (github.event_name != 'workflow_dispatch' || inputs.dry_run == false)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-tarball
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" tandem-agents-*.tgz \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            --verify-tag
+
+  publish-npm:
+    needs: verify
+    if: startsWith(github.ref, 'refs/tags/v') && (github.event_name != 'workflow_dispatch' || inputs.dry_run == false)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Ensure npm supports OIDC Trusted Publishing
+        run: npm install -g npm@latest
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NODE_AUTH_TOKEN" ]; then
+            echo '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}' > .npmrc
+          fi
+          npm publish --provenance --access public

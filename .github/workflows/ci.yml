@@ -18,7 +18,31 @@ jobs:
       - run: npm test
       - name: CLI smoke test (no agents needed)
         run: |
+          node bin/tandem.js --version
           node bin/tandem.js help
           node bin/tandem.js route "write unit tests for the parser"
           node bin/tandem.js doctor
           node bin/tandem.js init tmp-init --mcp
+      - name: Verify package tarball install
+        run: |
+          node -e "
+            const fs = require('node:fs');
+            const os = require('node:os');
+            const path = require('node:path');
+            const { execFileSync } = require('node:child_process');
+            if (fs.readFileSync('bin/tandem.js').includes(13)) throw new Error('bin/tandem.js contains CRLF');
+            const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+            const tgz = execFileSync(npm, ['pack', '--silent'], { encoding: 'utf8', shell: process.platform === 'win32' }).trim().split(/\r?\n/).pop();
+            const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tandem-pack-'));
+            try {
+              execFileSync(npm, ['install', '--no-audit', '--no-fund', '--prefix', tmp, path.resolve(tgz)], { stdio: 'inherit', shell: process.platform === 'win32' });
+              const bin = path.join(tmp, 'node_modules', '.bin', process.platform === 'win32' ? 'tandem.cmd' : 'tandem');
+              const ver = execFileSync(bin, ['--version'], { encoding: 'utf8', shell: process.platform === 'win32' }).trim();
+              const expected = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
+              if (ver !== expected) throw new Error('Expected ' + expected + ', got ' + ver);
+              execFileSync(bin, ['route', 'write unit tests'], { stdio: 'inherit', shell: process.platform === 'win32' });
+            } finally {
+              fs.rmSync(tmp, { recursive: true, force: true });
+              fs.rmSync(tgz, { force: true });
+            }
+          "
