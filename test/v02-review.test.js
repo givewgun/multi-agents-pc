@@ -61,12 +61,32 @@ describe('v0.2 review fixes', () => {
   it('installClaudeHook adds once, updates a moved command, keeps other hooks', () => {
     const f = path.join(tmp, 'settings.json');
     fs.writeFileSync(f, JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: 'command', command: 'notify.ps1' }] }, { hooks: [{ type: 'command', command: '"C:/old/tandem.js" hook claude' }] }] } }));
-    assert.equal(installClaudeHook(f), 'updated');
+    assert.equal(installClaudeHook(f), 'added');
     assert.equal(installClaudeHook(f), 'present');
     const s = JSON.parse(fs.readFileSync(f, 'utf8'));
     assert.equal(s.hooks.Stop.length, 2);
     assert.equal(s.hooks.Stop[0].hooks[0].command, 'notify.ps1');
+    assert.equal(s.hooks.UserPromptSubmit.length, 1);
+    assert.ok(s.hooks.UserPromptSubmit[0].hooks[0].command.endsWith('hook claude prompt'));
     assert.ok(fs.existsSync(`${f}.bak-tandem`));
+
+    const f2 = path.join(tmp, 'settings-prompt.json');
+    fs.writeFileSync(f2, JSON.stringify({
+      hooks: {
+        Stop: [{ hooks: [{ type: 'command', command: hookCommand('claude') }] }],
+        UserPromptSubmit: [
+          { hooks: [{ type: 'command', command: 'other-prompt.ps1' }] },
+          { hooks: [{ type: 'command', command: '"C:/old/tandem.js" hook claude prompt' }] },
+        ],
+      },
+    }));
+    assert.equal(installClaudeHook(f2), 'updated');
+    assert.equal(installClaudeHook(f2), 'present');
+    const s2 = JSON.parse(fs.readFileSync(f2, 'utf8'));
+    assert.equal(s2.hooks.UserPromptSubmit.length, 2);
+    assert.equal(s2.hooks.UserPromptSubmit[0].hooks[0].command, 'other-prompt.ps1');
+    assert.equal(s2.hooks.UserPromptSubmit[1].hooks[0].command, hookCommand('claude', 'prompt'));
+
     fs.writeFileSync(f, '[]');
     assert.throws(() => installClaudeHook(f), /not a JSON object/);
   });

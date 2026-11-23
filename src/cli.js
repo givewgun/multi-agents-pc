@@ -117,6 +117,7 @@ function assertNotSolo(cfg) {
 }
 
 function writeMode(value, flags) {
+  if (value === 'ask' && Object.hasOwn(flags, 'for')) throw new Error('--for only applies to free or solo (ask is the default and never expires)');
   const hasFor = value !== 'ask' && Object.hasOwn(flags, 'for');
   // A bad --for must fail loudly: falling back to "no end time" would leave the mode on indefinitely.
   if (hasFor && !flags.for) throw new Error('--for needs a value, e.g. --for 3h');
@@ -249,7 +250,7 @@ async function cmdStats(rest, flags, cfg) {
   console.log(`  all time:  ${c.green(usd(sv.offloadedAllUsd))} offloaded` + (sv.geminiMonthlyUsd ? ` · Gemini plan ${usd(sv.geminiMonthlyUsd)}/mo` : ''));
   printBudget(s.budget);
   const m = modeState(cfg);
-  if (m.mode !== 'ask') console.log('\n' + c.yellow(`mode ${m.mode}${m.until ? ` until ${m.until}` : ''}: ${MODE_TEXT[m.mode]} (tandem mode ask to reset)`));
+  if (m.mode !== 'ask') console.log('\n' + (m.mode === 'free' ? c.cyan : c.yellow)(`mode ${m.mode}${m.until ? ` until ${m.until}` : ''}: ${MODE_TEXT[m.mode]} (tandem mode ask to reset)`));
 }
 
 function resetsIn(iso) {

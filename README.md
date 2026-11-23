@@ -94,7 +94,7 @@ tandem review --agent both                             # dual review of your git
 tandem dashboard --open                                # local UI: work split, budgets, conversations
 ```
 
-Delegation is **opt-in**: each agent works alone until you ask. Inside **Claude Code**, say *"ask gemini …"*, `/gemini` or `/pair`. Inside **Antigravity**, say *"ask claude to review this diff"* or `/pair`. In either, *"use tandem freely"* lets the lead split the task and delegate by its own judgment. `tandem solo on [--for 5h]` blocks all calls between agents until `tandem solo off`. See [docs/DAILY.md](docs/DAILY.md) for daily habits.
+Delegation is **opt-in**: each agent works alone until you ask. Inside **Claude Code**, say *"ask gemini …"*, `/gemini` or `/pair`. Inside **Antigravity**, say *"ask claude to review this diff"* or `/pair`. In either, *"use tandem freely"* lets the lead split the task and delegate by its own judgment. To skip saying it every prompt, switch the session mode: `/tandem free` (or `tandem mode free --for 3h`) makes every prompt count as "use tandem freely" in both apps, `/tandem solo` blocks all calls between agents, `/tandem ask` returns to the default. See [docs/DAILY.md](docs/DAILY.md) for daily habits.
 
 ## Commands
 
@@ -102,7 +102,7 @@ Delegation is **opt-in**: each agent works alone until you ask. Inside **Claude 
 |---|---|
 | `tandem ask <gemini\|claude> "prompt"` | One call. `--model`, `--edit`, `--file`, `--continue <id>`, `--thread <id>`, `--json`, `--timeout 15m` |
 | `tandem route "task"` | Agent + model recommendation, budget-aware. Spends no tokens (`--lead claude\|gemini`, `--category <c>`) |
-| `tandem solo [on [--for 5h]\|off]` | Single-agent mode: blocks every call between agents (MCP and CLI) until off or expired |
+| `tandem mode [ask\|free\|solo] [--for 5h]` | Delegation mode for both apps: `ask` only when you ask (default), `free` every prompt counts as "use tandem freely" (per-prompt hooks), `solo` blocks every call between agents. `/tandem <mode>` inside either app. `tandem solo on\|off` is shorthand |
 | `tandem run "task"` | Route, call, and fall back to the other agent on error/quota |
 | `tandem review [--agent gemini\|claude\|both] [--staged] [--base main]` | Reviews `git diff` (sent in the prompt, so no shell permissions needed) |
 | `tandem show [last\|<id>\|thread:<id>]` | Read an exchange from the agent's own transcript, plus the resume command (`claude --resume`, `agy --conversation`) |

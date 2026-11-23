@@ -16,4 +16,5 @@ Read the one-liner first. Open the file only if you're touching that area. New d
 | [0010](0010-lead-partner-protocol.md) | Lead = agent the user talks to; partner for review/second opinion; user pins > budget > rules | accepted |
 | [0011](0011-native-transcripts-and-hooks.md) | Read native transcripts (no prompt copies); Stop hooks log direct work; `TANDEM_MANAGED` prevents double count | accepted |
 | [0012](0012-lead-classifies.md) | Lead LLM classifies + decomposes (`category`); router = policy; no match → `general` Neon, not Flash Low | accepted |
-| [0013](0013-opt-in-delegation-solo.md) | Delegation is opt-in ("use tandem freely" = full judgment); `tandem solo` hard-blocks all agent-to-agent calls | accepted |
+| [0013](0013-opt-in-delegation-solo.md) | Delegation is opt-in ("use tandem freely" = full judgment); `tandem solo` hard-blocks all agent-to-agent calls | accepted; solo folded into 0014 |
+| [0014](0014-session-mode-hooks.md) | `tandem mode ask\|free\|solo`, delivered by per-prompt hooks (Claude `UserPromptSubmit`, Antigravity `PreInvocation`) | accepted |

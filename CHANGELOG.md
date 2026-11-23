@@ -8,7 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `tandem solo [on [--for 5h]|off]`: single-agent mode. Blocks MCP `ask_gemini`/`ask_claude` and CLI `ask`/`run`/`review` (and `bench --agentic` team setups) until turned off or expired. Shown in `tandem stats`, `tandem_stats` and the dashboard.
+- `tandem mode [ask|free|solo] [--for 5h]`, shared by both apps, and a `/tandem` skill to switch it from inside Claude Code or Antigravity.
+  - `free`: every prompt counts as "use tandem freely". A Claude `UserPromptSubmit` hook adds a note to each prompt; an Antigravity `PreInvocation` hook adds a system message when the mode changes. Partners spawned by tandem never see it, so they can't delegate back.
+  - `solo`: blocks MCP `ask_gemini`/`ask_claude`, CLI `ask`/`run`/`review` and `bench --agentic` team setups. `tandem solo on|off` is shorthand.
+  - Shown in `tandem stats`, `tandem_stats` and the dashboard. Re-run `tandem init --global` to install the hooks and skill.
 
 ### Changed
 - Delegation is opt-in. Skills and rules on both sides trigger only when the user asks (`/gemini`, `/pair`, "ask gemini/claude", "work with …") or says "use tandem freely" (the lead then decomposes and delegates by its own judgment for that task). Re-run `tandem init --global --force` to update installed skills.

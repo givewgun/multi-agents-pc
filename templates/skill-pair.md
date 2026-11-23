@@ -7,7 +7,7 @@ description: Work with Gemini as a team — plan-critique, split by strength, du
 
 Pick the pattern, keep Claude's plan usage low (you're the scarcer plan), and keep one thread id for the whole task (`thread: "<short-slug>"` on every `ask_gemini` call).
 
-**Asked?** Only when the user asked (see description); "use tandem freely" covers the rest of that task. A call that returns "solo mode is on" → stop and do it yourself.
+**Asked?** Only when the user asked (see description); "use tandem freely" covers the rest of that task, a "tandem mode: free" note every prompt. A call that returns "solo mode is on" → stop and do it yourself.
 
 **First, decompose.** You decide what to delegate: split the task into parts, classify each yourself (`research`, `bulk-read`, `boilerplate`, `feature`, `ui`, `architecture`, `hard-debug`, `review`…) and pass that as `category` to `route_task` / `ask_gemini`. tandem then applies pins, budgets and the no-self-review rule; it does not understand the task.
 

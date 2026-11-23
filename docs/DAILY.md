@@ -14,7 +14,13 @@ Just talk. Claude works alone until you ask; then it has the `ask_gemini` tool a
 | "get a second opinion from gemini" | Gemini critiques Claude's plan or diff |
 | "what's the latest X? ask gemini" | Google-grounded answer, no Claude web tokens |
 
-Want one agent only? `tandem solo on` (or `--for 3h`) blocks every call between agents, both directions; `tandem solo off` ends it.
+Session modes, shared by both apps (type `/tandem <mode>` in either, or `tandem mode <mode>` in a terminal; add `--for 3h` to expire):
+
+| Mode | What happens |
+|---|---|
+| `ask` (default) | Each agent works alone until you ask |
+| `free` | Every prompt counts as "use tandem freely": the lead delegates by judgment without you repeating it |
+| `solo` | Every call between agents is blocked, both directions |
 
 ## In Antigravity (Gemini leads)
 
