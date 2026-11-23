@@ -8,6 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { callAndLog, currentBudget } from './cli.js';
 import { tandemHome, loadConfig } from './config.js';
+import { shellDeniedHint } from './agents.js';
 import { sweep } from './hooks.js';
 import { getUsage } from './usage.js';
 import { route } from './router.js';
@@ -209,7 +210,7 @@ async function callToolNow(name, a, expose, _cfg, defaultThread, getClientRoot) 
   }
   if (res.ok && res.sessionId) saveThread(thread, agent, res.sessionId, workDir);
   const pluginNote = !explicitCwd && PLUGIN_DIR_RE.test(workDir) ? ' · note: ran in plugin dir; pass cwd for workspace access' : '';
-  const footer = `\n\n[${res.agent} ${res.model} · ${res.status} · ${Math.round(res.durationMs / 1000)}s · ${res.usage.total} tokens · session ${res.sessionId} · thread ${thread}${res.denied.length ? ` · denied: ${res.denied.join(', ')}` : ''}${agent === 'gemini' ? ` · ≈$${rec.claudeEquivUsd.toFixed(4)} of Claude usage offloaded` : ''}${pluginNote}]`;
+  const footer = `\n\n[${res.agent} ${res.model} · ${res.status} · ${Math.round(res.durationMs / 1000)}s · ${res.usage.total} tokens · session ${res.sessionId} · thread ${thread}${res.denied.length ? ` · denied: ${res.denied.join(', ')}` : ''}${shellDeniedHint(res.denied, liveCfg) ? ` · ${shellDeniedHint(res.denied, liveCfg)}` : ''}${agent === 'gemini' ? ` · ≈$${rec.claudeEquivUsd.toFixed(4)} of Claude usage offloaded` : ''}${pluginNote}]`;
   if (!res.ok) return text(`${res.agent} failed (${res.status}): ${res.error || 'no output'}${footer}`, true);
   return text(res.text + footer);
 }

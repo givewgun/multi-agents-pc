@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { loadConfig, setConfigValue, configPath, readUserConfig, saveUserConfig, GEMINI_ALIASES, CLAUDE_ALIASES, resolveGeminiModel, resolveClaudeModel } from './config.js';
-import { ask, findAgy } from './agents.js';
+import { ask, findAgy, shellDeniedHint } from './agents.js';
 import { run as spawnRun } from './proc.js';
 import { makeRecord, appendRecord, readRecords, summarize, ledgerPath, planBudget } from './ledger.js';
 import { getUsage, storeSnapshot } from './usage.js';
@@ -71,7 +71,10 @@ export async function currentBudget(cfg, records = readRecords()) {
 function printResult(res, rec, flags) {
   if (flags.json) { process.stdout.write(JSON.stringify({ ...res, stderr: undefined, record: rec }, null, 2) + '\n'); return; }
   if (res.text) process.stdout.write(res.text.trimEnd() + '\n');
-  if (res.denied.length) process.stderr.write(c.yellow(`! denied: ${res.denied.join(', ')} — use --edit for edits; shell commands need agent allow-rules\n`));
+  if (res.denied.length) {
+    const hint = shellDeniedHint(res.denied, loadConfig());
+    process.stderr.write(c.yellow(`! denied: ${res.denied.join(', ')} — use --edit for edits${hint ? `; ${hint}` : ''}\n`));
+  }
   if (!res.ok) process.stderr.write(c.red(`✗ ${res.agent} ${res.status}: ${res.error || ''}\n`));
   const saved = res.agent === 'gemini' ? ` · saved≈${usd(rec.claudeEquivUsd)} vs ${loadConfig().savingsBaseline}` : ` · cost≈${usd(rec.costUsd)}`;
   process.stderr.write(c.dim(`[${res.agent} ${res.model} · ${res.status} · ${ms(res.durationMs)} · ${tok(res.usage.total)} tok${saved} · session ${res.sessionId}]\n`));

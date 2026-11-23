@@ -189,7 +189,7 @@ Each side only sees the *other* agent, so neither calls itself in a loop.
 
 ## Safety defaults
 
-- Delegated calls are **read-only** unless you pass `--edit`. With `--edit`, file edits are allowed and shell commands are still denied.
+- Delegated calls are **read-only** unless you pass `--edit`. With `--edit`, file edits are allowed and shell commands are still denied, so by default a partner can edit but not run your tests. To let it verify its work, opt in to specific commands: `tandem config set allowCommands "npm test;node --test"`. They are granted on `--edit` calls only, as Claude `Bash(…:*)`/`PowerShell(…:*)` and agy `command(…)` rules. Only the user can set them, never a calling agent. Shells, bare runners (`npm`, `node`) and inline-eval flags (`-e`, `-c`) are rejected. Running tests runs repo code the agent may have written, so only enable this for repos you trust.
 - No shell is used to launch agents (argv arrays). Free text goes to `.cmd` shims via stdin.
 - The dashboard binds to `127.0.0.1` and rejects non-local `Host`/`Origin` headers (DNS rebinding guard).
 - Everything stays local in `~/.tandem/` (override with `TANDEM_HOME`). Prompts are not copied into the ledger — only lengths and pointers to native transcripts.

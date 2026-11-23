@@ -53,6 +53,9 @@ export const DEFAULT_CONFIG = {
   // `tandem pin <category> <agent:model>` — the user's choice beats routing rules.
   routing: { pins: {} },
   timeouts: { geminiMs: 15 * 60_000, claudeMs: 15 * 60_000 },
+  // Commands headless agents may run on --edit calls, e.g. "npm test;node --test". Opt-in: tests run
+  // repo code the agent may have just written, so only grant this for repos you trust.
+  allowCommands: [],
   paths: { agy: null, claude: null },
 };
 

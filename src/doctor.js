@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { run } from './proc.js';
-import { findAgy, findClaude, askGemini, askClaude } from './agents.js';
+import { findAgy, findClaude, askGemini, askClaude, commandPrefixes } from './agents.js';
 import { tandemHome, configPath } from './config.js';
 import { readRecords } from './ledger.js';
 import { c } from './format.js';
@@ -43,6 +43,11 @@ export async function doctor(cfg, flags = {}) {
       }
     } catch { warn(`could not parse ${agySettings}`); }
   }
+
+  const granted = commandPrefixes(cfg);
+  if (granted.length) ok(`headless agents may run on --edit calls: ${granted.join('; ')}`);
+  else warn('headless agents cannot run tests (on --edit calls they edit, then can only read the code)',
+    'tandem config set allowCommands "npm test;node --test"   (opt-in; --edit calls only; tests run repo code, so trusted repos only)');
 
   if (flags.live) {
     console.log(c.dim('\nlive checks (2 tiny calls)…'));

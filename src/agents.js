@@ -90,10 +90,8 @@ function result(agent, model, fields) {
 export const headlessNote = (edit, allow = []) => {
   // Commands granted for this call (e.g. command(node --test)) must be advertised, or agy never tries them.
   const extra = allow.map((r) => /^command\((.+)\)$/.exec(r)?.[1]).filter(Boolean);
-  const also = extra.length ? `; also allowed for this run: ${extra.map((x) => `\`${x}\``).join(', ')}` : '';
-  return `[tandem] Headless run: shell commands are unavailable (except read-only git: status, diff, log, show, blame, ls-files${also}). ${edit ? 'Use your file read/edit tools.' : 'This run is read-only: use file read/search tools; edits will be denied.'} If an action is denied, continue without it; never end your turn with an empty answer.
-
-`;
+  const also = extra.length ? `; also allowed for this run: ${extra.map((x) => `\`${x}\``).join(', ')}, run from the current directory as a single command with no pipes, \`&&\` or \`cd\`` : '';
+  return `[tandem] Headless run: shell commands are unavailable (except read-only git: status, diff, log, show, blame, ls-files${also}). ${edit ? 'Use your file read/edit tools.' : 'This run is read-only: use file read/search tools; edits will be denied.'} If an action is denied, continue without it; never end your turn with an empty answer.\n\n`;
 };
 
 /**
@@ -103,6 +101,7 @@ export const headlessNote = (edit, allow = []) => {
 export function mergeGeminiPermissions(allow, user = {}) {
   const p = user.permissions || {};
   const out = { allow: [...new Set([...(p.allow || []), ...allow])] };
+  if (p.ask?.length) out.ask = p.ask; // agy precedence is deny > ask > allow; dropping it would widen access
   if (p.deny?.length) out.deny = p.deny;
   return { permissions: out };
 }
@@ -270,7 +269,55 @@ export function claudeStream(stdout) {
   return { final: final || lastJsonLine(stdout), plan };
 }
 
+// Interpreters, shells and package runners: as a bare prefix they would allow any command.
+const BARE_RUNNERS = new Set(['bash', 'sh', 'zsh', 'fish', 'cmd', 'powershell', 'pwsh', 'node', 'deno', 'bun', 'python', 'python3', 'py',
+  'ruby', 'perl', 'php', 'npm', 'npx', 'pnpm', 'yarn', 'uv', 'pip', 'cargo', 'go', 'dotnet', 'java', 'env', 'sudo', 'git']);
+// Never valid as a prefix, whatever follows: a shell, or a flag that runs inline code.
+const SHELLS = new Set(['bash', 'sh', 'zsh', 'fish', 'cmd', 'cmd.exe', 'powershell', 'powershell.exe', 'pwsh', 'env', 'sudo', 'start']);
+const EVAL_FLAGS = new Set(['-c', '-e', '--eval', '-p', '--print', '-r', '--require', '--import', '-command', '-encodedcommand', '/c', '/k', 'exec', 'dlx']);
+
+/**
+ * Verify commands the USER granted in config `allowCommands` (array, or a string split on ; or ,).
+ * Never taken from callers (an agent must not widen its partner's rights). Unsafe entries are dropped.
+ */
+export function commandPrefixes(cfg) {
+  const v = cfg?.allowCommands;
+  const list = Array.isArray(v) ? v : typeof v === 'string' ? v.split(/[;,]/) : [];
+  // `,` is rejected too: Claude's --allowedTools is comma-joined, so a comma would inject another rule.
+  return [...new Set(list.map((x) => String(x).trim().replace(/\s+/g, ' ')).filter((x) => {
+    if (!x || /[;,&|`$<>(){}*\n\r"']/.test(x) || /^regex:/i.test(x)) return false;
+    const tokens = x.split(' ');
+    const exe = exeName(tokens[0]);
+    if (tokens.length === 1 && BARE_RUNNERS.has(exe)) return false;
+    if (SHELLS.has(exe)) return false;
+    return !tokens.some((t) => EVAL_FLAGS.has(t.split('=')[0].toLowerCase()));
+  }))];
+}
+
+/** `C:\x\Node.EXE` / `/bin/bash` → `node` / `bash`, so paths and extensions can't dodge the lists. */
+function exeName(t) {
+  return t.split(/[\\/]/).pop().toLowerCase().replace(/\.(exe|cmd|bat|com|ps1)$/, '');
+}
+
+/** Permission rules for granted commands. Edit calls only: running tests runs code the agent may have written. */
+export function commandGrants(agent, cfg, edit) {
+  if (!edit) return [];
+  const p = commandPrefixes(cfg);
+  return agent === 'claude' ? p.flatMap((x) => [`Bash(${x}:*)`, `PowerShell(${x}:*)`]) : p.map((x) => `command(${x})`);
+}
+
+/** Hint when a run had shell commands denied (Claude: Bash/PowerShell, agy: command). */
+export function shellDeniedHint(denied = [], cfg) {
+  if (!denied.some((d) => /^(Bash|PowerShell|command)$/.test(d))) return '';
+  const granted = commandPrefixes(cfg);
+  return granted.length
+    ? `shell denied outside allowCommands (${granted.join('; ')}); granted on --edit calls only`
+    : 'shell denied: to let headless agents run tests on --edit calls, the user can run tandem config set allowCommands "npm test;node --test"';
+}
+
 export function ask(agent, opts, cfg) {
+  const grants = commandGrants(agent, cfg, opts.edit);
+  if (grants.length) opts = { ...opts, allow: [...new Set([...(opts.allow || []), ...grants])] };
   if (agent === 'gemini') return askGemini(opts, cfg);
   if (agent === 'claude') return askClaude(opts, cfg);
   throw new Error(`Unknown agent "${agent}" (use gemini or claude)`);

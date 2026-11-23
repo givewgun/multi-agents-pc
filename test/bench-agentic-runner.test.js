@@ -44,8 +44,33 @@ test('analyzeAgentic totals Claude spend and partner calls', () => {
 
 test('headlessNote advertises per-call command grants', async () => {
   const { headlessNote } = await import('../src/agents.js');
-  assert.match(headlessNote(true, ['command(node --test)', 'mcp(a/b)']), /also allowed for this run: `node --test`\)/);
+  const note = headlessNote(true, ['command(node --test)', 'mcp(a/b)']);
+  assert.match(note, /also allowed for this run: `node --test`, run from the current directory as a single command with no pipes/);
+  assert.doesNotMatch(note, /mcp\(a\/b\)/);
   assert.doesNotMatch(headlessNote(true), /also allowed/);
+  assert.ok(note.endsWith('\n\n'));
+});
+
+test('commandPrefixes keeps test commands and drops shells, bare runners and eval flags', async () => {
+  const { commandPrefixes } = await import('../src/agents.js');
+  const cfg = { allowCommands: 'npm test; node --test , npm; bash -c x; node -e 1; npm exec x; npm test | tail; regex:.*; python -m pytest; cargo test; npm  test' };
+  assert.deepEqual(commandPrefixes(cfg), ['npm test', 'node --test', 'python -m pytest', 'cargo test']);
+  assert.deepEqual(commandPrefixes({ allowCommands: ['pytest', '*'] }), ['pytest']);
+  // Gemini review: commas (rule injection), paths/extensions and =-joined eval flags.
+  assert.deepEqual(commandPrefixes({ allowCommands: ['npm test,Bash', 'node.exe', 'npm.cmd', '/bin/bash -x', 'C:\\Windows\\System32\\cmd.exe /x',
+    'node --eval=1', 'node --require=./x', 'pwsh.exe -File t.ps1', 'npm.cmd test'] }), ['npm.cmd test']);
+  assert.deepEqual(commandPrefixes({}), []);
+});
+
+test('commandGrants: per-agent rules, edit calls only; ask() never takes grants from callers', async () => {
+  const { commandGrants, shellDeniedHint } = await import('../src/agents.js');
+  const cfg = { allowCommands: ['npm test'] };
+  assert.deepEqual(commandGrants('claude', cfg, true), ['Bash(npm test:*)', 'PowerShell(npm test:*)']);
+  assert.deepEqual(commandGrants('gemini', cfg, true), ['command(npm test)']);
+  assert.deepEqual(commandGrants('gemini', cfg, false), []);
+  assert.equal(shellDeniedHint(['Edit'], cfg), '');
+  assert.match(shellDeniedHint(['Bash'], {}), /tandem config set allowCommands/);
+  assert.match(shellDeniedHint(['command'], cfg), /outside allowCommands \(npm test\)/);
 });
 
 test('mergeGeminiPermissions keeps the user allow/deny rules', async () => {
@@ -53,4 +78,5 @@ test('mergeGeminiPermissions keeps the user allow/deny rules', async () => {
   const m = mergeGeminiPermissions(['command(node --test)', 'command(git diff)'], { permissions: { allow: ['command(git diff)'], deny: ['command(rm)'] } });
   assert.deepEqual(m, { permissions: { allow: ['command(git diff)', 'command(node --test)'], deny: ['command(rm)'] } });
   assert.deepEqual(mergeGeminiPermissions(['x'], {}), { permissions: { allow: ['x'] } });
+  assert.deepEqual(mergeGeminiPermissions(['x'], { permissions: { ask: ['command(rm)'] } }).permissions.ask, ['command(rm)']);
 });
