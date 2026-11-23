@@ -25,8 +25,17 @@ async function pool(items, n, fn) {
 
 export async function bench(flags, cfg) {
   const models = (flags.models ? String(flags.models).split(',') : DEFAULT_MODELS).map(parseModel);
+  const badAgent = models.find((m) => m.agent !== 'gemini' && m.agent !== 'claude');
+  if (badAgent) throw new Error(`Unknown agent in "${badAgent.key}" (use gemini:<model> or claude:<model>)`);
   const tasks = flags.tasks ? TASKS.filter((t) => String(flags.tasks).split(',').includes(t.id)) : TASKS;
-  const repeat = Number(flags.repeat || 1);
+  if (!tasks.length) throw new Error(`No matching tasks. Available: ${TASKS.map((t) => t.id).join(', ')}`);
+  const posInt = (v, name, dflt) => {
+    const n = v == null ? dflt : Number(v);
+    if (!Number.isInteger(n) || n < 1) throw new Error(`--${name} must be a positive integer`);
+    return n;
+  };
+  const repeat = posInt(flags.repeat, 'repeat', 1);
+  const concurrency = posInt(flags.concurrency, 'concurrency', 3);
   const jobs = [];
   for (let r = 0; r < repeat; r++) for (const t of tasks) for (const m of models) jobs.push({ t, m, r });
   console.log(c.dim(`bench: ${tasks.length} tasks × ${models.length} models × ${repeat} = ${jobs.length} calls`));
@@ -44,7 +53,7 @@ export async function bench(flags, cfg) {
   };
   // Separate pools so a slow agent doesn't starve the other; keep concurrency low to respect quotas.
   const [gem, cla] = await Promise.all([
-    pool(jobs.filter((j) => j.m.agent === 'gemini'), Number(flags.concurrency || 3), runJob),
+    pool(jobs.filter((j) => j.m.agent === 'gemini'), concurrency, runJob),
     pool(jobs.filter((j) => j.m.agent === 'claude'), 2, runJob),
   ]);
   const results = [...gem, ...cla];

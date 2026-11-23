@@ -1,6 +1,6 @@
 import path from 'node:path';
 import os from 'node:os';
-import { which, run } from './proc.js';
+import { which, run, isShim } from './proc.js';
 import { resolveGeminiModel, resolveClaudeModel } from './config.js';
 
 const home = os.homedir();
@@ -29,18 +29,21 @@ const MAX_ARGV_PROMPT = 24_000;
 
 export function classifyFailure(text) {
   const t = text.toLowerCase();
-  if (/quota|resource_exhausted|rate.?limit|429|usage limit|limit reached/.test(t)) return 'quota';
+  if (/quota|resource_exhausted|rate.?limit|\b429\b|usage limit|limit reached/.test(t)) return 'quota';
   if (/authenticat|not logged in|login|oauth|credential/.test(t)) return 'auth';
   return 'error';
 }
 
+const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+/** Last JSON object in stdout (tools sometimes print extra lines). Non-objects don't count. */
 export function lastJsonLine(stdout) {
   const s = stdout.trim();
   if (!s) return null;
-  try { return JSON.parse(s); } catch { /* fall through: tools sometimes print extra lines */ }
+  try { const v = JSON.parse(s); if (isObject(v)) return v; } catch { /* fall through */ }
   const lines = s.split(/\r?\n/).filter((l) => l.trim().startsWith('{'));
   for (let i = lines.length - 1; i >= 0; i--) {
-    try { return JSON.parse(lines[i]); } catch { /* keep looking */ }
+    try { const v = JSON.parse(lines[i]); if (isObject(v)) return v; } catch { /* keep looking */ }
   }
   return null;
 }
@@ -82,7 +85,7 @@ export async function askGemini(opts, cfg) {
 
   // Long prompts exceed the OS command-line limit; send them as one NDJSON event on stdin instead.
   // (A temp file doesn't work: agy denies reads outside the workspace in headless mode.)
-  const stream = prompt.length > MAX_ARGV_PROMPT;
+  const stream = prompt.length > MAX_ARGV_PROMPT || isShim(bin);
   const args = stream
     ? ['--input-format', 'stream-json', '--output-format', 'stream-json']
     : ['-p', prompt, '--output-format', 'json'];
@@ -149,7 +152,7 @@ export async function askClaude(opts, cfg) {
   const durationMs = Date.now() - t0;
   const j = lastJsonLine(r.stdout);
   if (r.timedOut) return result('claude', model, { status: 'timeout', durationMs, stderr: r.stderr, error: 'timed out' });
-  if (!j) {
+  if (!j || (r.code !== 0 && typeof j.is_error !== 'boolean')) {
     return result('claude', model, {
       status: classifyFailure(r.stderr + r.stdout), durationMs, stderr: r.stderr,
       error: (r.stderr || r.stdout || `claude exited ${r.code}`).trim().slice(0, 2000),

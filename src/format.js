@@ -9,7 +9,7 @@ export const c = { dim: wrap(2), bold: wrap(1), green: wrap(32), yellow: wrap(33
 
 export function bar(ratio, width = 20) {
   if (ratio == null) return c.dim('no budget set');
-  const filled = Math.min(width, Math.round(Math.min(ratio, 1) * width));
+  const filled = Math.max(0, Math.min(width, Math.round(Math.min(ratio, 1) * width)));
   const color = ratio >= 1 ? c.red : ratio >= 0.8 ? c.yellow : c.green;
   return color('█'.repeat(filled)) + c.dim('░'.repeat(width - filled)) + ` ${pct(ratio)}`;
 }

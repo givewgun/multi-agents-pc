@@ -2,6 +2,7 @@ import http from 'node:http';
 import { readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { readRecords, summarize } from '../ledger.js';
+import { loadConfig } from '../config.js';
 
 const INDEX_URL = new URL('./index.html', import.meta.url);
 const HOST = '127.0.0.1';
@@ -54,11 +55,13 @@ function createHandler(cfg) {
             .map((s) => s.trim())
             .filter(Boolean)
         );
-        let records = readRecords();
-        if (excludes.size > 0) {
-          records = records.filter((r) => !excludes.has(r.tag));
-        }
-        const summary = summarize(records, cfg);
+        // Reload config per request so `tandem budget set` shows up without a restart.
+        const liveCfg = loadConfig();
+        const all = readRecords();
+        const shown = excludes.size > 0 ? all.filter((r) => !excludes.has(r.tag)) : all;
+        const summary = summarize(shown, liveCfg);
+        // Budgets are about real quota use, so they always count every call, benchmarks included.
+        if (shown !== all) summary.budget = summarize(all, liveCfg).budget;
         send(res, 200, 'application/json; charset=utf-8', JSON.stringify(summary));
         return;
       }

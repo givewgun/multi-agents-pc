@@ -19,6 +19,11 @@ Rule of thumb: **mostly reading or typing → Gemini. Mostly deciding → Claude
 - MCP tools when registered: `ask_gemini`, `ask_claude`, `route_task`, `tandem_stats`.
 - Bigger async handoffs: write `handoffs/inbox/<date>-<slug>.md` from `handoffs/TEMPLATE.md`.
 
+## Shared memory
+
+- `docs/ARCHITECTURE.md`: module map and contracts. `docs/adr/`: one short file per decision plus a one-line index in `docs/adr/README.md`.
+- Both agents read the index first and open single files only when needed. Record new decisions there, not in chat.
+
 ## Ground rules
 
 - The other agent can't see your conversation. Prompts must be self-contained: goal, files, constraints, return format.

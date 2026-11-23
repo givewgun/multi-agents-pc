@@ -1,6 +1,6 @@
 // Benchmark tasks with deterministic graders. Each maps to a router category so results can
 // confirm (or correct) the routing table.
-import vm from 'node:vm';
+import { spawnSync } from 'node:child_process';
 import { RULES } from '../router.js';
 
 export function extractJson(text) {
@@ -24,10 +24,23 @@ function extractCode(text) {
   return (m ? m[1] : text).trim();
 }
 
-function runInSandbox(code, expr) {
-  const ctx = vm.createContext({});
-  vm.runInContext(code, ctx, { timeout: 1000 });
-  return vm.runInContext(expr, ctx, { timeout: 1000 });
+const MARK = '\n__TANDEM_RESULT__';
+const [NODE_MAJOR] = process.versions.node.split('.').map(Number);
+// Node's permission model blocks fs/child_process/worker access for the untrusted script.
+const PERMISSION_FLAG = NODE_MAJOR >= 22 ? ['--permission'] : NODE_MAJOR >= 20 ? ['--experimental-permission'] : [];
+
+/**
+ * Evaluate model-written code in a separate, short-lived node process (node:vm is not a security
+ * boundary). Returns one {ok, value} | {ok:false, error} per expression.
+ */
+export function runCases(code, exprs, timeoutMs = 5000) {
+  const wrapped = exprs.map((e) => `(() => { try { return { ok: true, value: (${e}) }; } catch (err) { return { ok: false, error: String(err && err.message) }; } })()`);
+  const script = `${code}\n;process.stdout.write(${JSON.stringify(MARK)} + JSON.stringify([${wrapped.join(',')}]));`;
+  const r = spawnSync(process.execPath, [...PERMISSION_FLAG, '-'], { input: script, encoding: 'utf8', timeout: timeoutMs, windowsHide: true });
+  if (r.error?.code === 'ETIMEDOUT') throw new Error('timed out');
+  const at = (r.stdout || '').lastIndexOf(MARK);
+  if (at === -1) throw new Error((r.stderr || 'no output').trim().split('\n').slice(-3).join(' ').slice(0, 200));
+  return JSON.parse(r.stdout.slice(at + MARK.length));
 }
 
 // Deterministic PRNG so the log task is identical across runs.
@@ -117,8 +130,8 @@ Reply with only the code in one \`\`\`js block.`,
     grade(text) {
       const cases = [['Hello World', 'hello-world'], ['  Crème Brûlée!! ', 'creme-brulee'], ['a--b__c', 'a-b-c'], ['Año 2026: ¿Qué?', 'ano-2026-que'], ['---', ''], ['ABC123def', 'abc123def']];
       try {
-        const code = extractCode(text);
-        const fails = cases.filter(([i, o]) => runInSandbox(code, `slugify(${JSON.stringify(i)})`) !== o);
+        const out = runCases(extractCode(text), cases.map(([i]) => `slugify(${JSON.stringify(i)})`));
+        const fails = cases.filter(([, o], k) => !out[k].ok || out[k].value !== o);
         return { pass: fails.length === 0, why: fails.length ? `wrong for ${fails.map((f) => JSON.stringify(f[0])).join(', ')}` : '' };
       } catch (e) { return { pass: false, why: `code error: ${e.message}` }; }
     },
@@ -172,14 +185,16 @@ ${LRU_BUGGY}
 Return the corrected class (same name and API, still using a Map) in one \`\`\`js block, code only.`,
     grade(text) {
       try {
-        const code = extractCode(text) + '\n;globalThis.LRU = LRU;';
+        const code = extractCode(text);
         const script = `(() => { const c = new LRU(2); c.put('a',1); c.put('b',2); c.get('a'); c.put('c',3);
           const r1 = c.get('b') === -1 && c.get('a') === 1 && c.get('c') === 3;
           const d = new LRU(2); d.put('x',1); d.put('y',2); d.put('x',9); d.put('z',3);
           const r2 = d.get('y') === -1 && d.get('x') === 9 && d.get('z') === 3;
           const e = new LRU(1); e.put('k',1); e.put('k',2); const r3 = e.get('k') === 2;
           return [r1, r2, r3]; })()`;
-        const [r1, r2, r3] = runInSandbox(code, script);
+        const [res] = runCases(code, [script]);
+        if (!res.ok) return { pass: false, why: `code error: ${res.error}` };
+        const [r1, r2, r3] = res.value;
         const why = [!r1 && 'get() does not refresh recency', !r2 && 'update order wrong', !r3 && 'cap-1 overwrite wrong'].filter(Boolean).join('; ');
         return { pass: r1 && r2 && r3, why };
       } catch (e) { return { pass: false, why: `code error: ${e.message}` }; }
@@ -195,8 +210,9 @@ Return the corrected class (same name and API, still using a Map) in one \`\`\`j
       const cases = [['1 + 2 * 3', 7], ['(1 + 2) * 3', 9], ['8 / 4 / 2', 1], ['10 - 4 - 3', 3], ['-3 * -2', 6], ['--2', 2], ['2 * (3 + -(4 - 1))', 0], [' 1.5*2 ', 3], ['-(2+3)*2', -10]];
       const errs = ['1 +', '(1 + 2', '2 * * 3', ''];
       try {
-        const wrong = cases.filter(([e, v]) => Math.abs(runInSandbox(code, `evaluate(${JSON.stringify(e)})`) - v) > 1e-9);
-        const noThrow = errs.filter((e) => { try { runInSandbox(code, `evaluate(${JSON.stringify(e)})`); return true; } catch { return false; } });
+        const out = runCases(code, [...cases.map(([e]) => e), ...errs].map((e) => `evaluate(${JSON.stringify(e)})`));
+        const wrong = cases.filter(([, v], k) => !out[k].ok || typeof out[k].value !== 'number' || Math.abs(out[k].value - v) > 1e-9);
+        const noThrow = errs.filter((_, k) => out[cases.length + k].ok);
         const why = [wrong.length && `wrong: ${wrong.map((w) => w[0]).join(' | ')}`, noThrow.length && `no error for: ${noThrow.map((e) => JSON.stringify(e)).join(', ')}`].filter(Boolean).join('; ');
         return { pass: !wrong.length && !noThrow.length, why };
       } catch (e) { return { pass: false, why: `code error: ${e.message}` }; }

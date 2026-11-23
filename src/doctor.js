@@ -20,17 +20,15 @@ export async function doctor(cfg, flags = {}) {
   if (major > 18 || (major === 18 && minor >= 17)) ok(`node ${process.versions.node}`);
   else bad(`node ${process.versions.node} is too old`, 'install Node 18.17+');
 
-  const agy = findAgy(cfg);
-  if (agy) {
-    const v = await run(agy, ['--version'], { timeoutMs: 20_000 });
-    ok(`agy ${v.stdout.trim() || '(version unknown)'} at ${agy}`);
-  } else bad('agy (Antigravity CLI) not found', `${AGY_INSTALL}; then run \`agy\` once to sign in`);
-
-  const claude = findClaude(cfg);
-  if (claude) {
-    const v = await run(claude, ['--version'], { timeoutMs: 20_000 });
-    ok(`claude ${v.stdout.trim() || '(version unknown)'} at ${claude}`);
-  } else bad('claude CLI not found', 'https://claude.com/claude-code');
+  const checkBin = async (label, bin, missingFix) => {
+    if (!bin) return void bad(`${label} not found`, missingFix);
+    const v = await run(bin, ['--version'], { timeoutMs: 20_000 });
+    if (v.code === 0 && !v.timedOut) ok(`${label} ${v.stdout.trim() || '(version unknown)'} at ${bin}`);
+    else bad(`${label} at ${bin} failed to run (${v.timedOut ? 'timeout' : `exit ${v.code}`})`, (v.stderr || '').trim().slice(0, 200) || missingFix);
+    return bin;
+  };
+  const agy = await checkBin('agy', findAgy(cfg), `${AGY_INSTALL}; then run \`agy\` once to sign in`);
+  const claude = await checkBin('claude', findClaude(cfg), 'https://claude.com/claude-code');
 
   const agySettings = path.join(os.homedir(), '.gemini', 'antigravity-cli', 'settings.json');
   if (existsSync(agySettings)) {

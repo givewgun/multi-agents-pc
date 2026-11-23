@@ -80,11 +80,15 @@ export function route(task, budget = null) {
 
   if (budget) {
     const warn = budget.warnAt ?? 0.8;
-    if (pick.agent === 'claude' && budget.claudeWeek?.ratio != null && budget.claudeWeek.ratio >= 1) {
+    const claudeOut = (budget.claudeWeek?.ratio ?? 0) >= 1;
+    const geminiOut = !!budget.geminiLikelyLimited || (budget.gemini5h?.ratio ?? 0) >= 1 || (budget.geminiWeek?.ratio ?? 0) >= 1;
+    if (claudeOut && geminiOut) {
+      pick.notes.push('Both Claude and Gemini budgets are exhausted: keeping the original pick.');
+    } else if (pick.agent === 'claude' && claudeOut) {
       pick.notes.push(`Claude weekly budget used (${pct(budget.claudeWeek.ratio)}): sending to Gemini Neon High instead.`);
       Object.assign(pick, { agent: 'gemini', model: 'neon-high' });
-    } else if (pick.agent === 'gemini' && (budget.geminiLikelyLimited || (budget.gemini5h?.ratio ?? 0) >= 1)) {
-      pick.notes.push('Gemini quota likely exhausted (recent quota error or 5h cap): falling back to Claude Sonnet.');
+    } else if (pick.agent === 'gemini' && geminiOut) {
+      pick.notes.push('Gemini quota likely exhausted (recent quota error, 5h or weekly cap): falling back to Claude Sonnet.');
       Object.assign(pick, { agent: 'claude', model: 'sonnet' });
     } else if (pick.agent === 'claude' && (budget.claudeWeek?.ratio ?? 0) >= warn) {
       pick.notes.push(`Claude weekly budget at ${pct(budget.claudeWeek.ratio)}: consider Gemini.`);

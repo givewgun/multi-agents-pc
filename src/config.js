@@ -52,10 +52,15 @@ export const DEFAULT_CONFIG = {
 
 function isObj(v) { return v && typeof v === 'object' && !Array.isArray(v); }
 
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 export function deepMerge(base, over) {
   if (!isObj(over)) return base;
   const out = { ...base };
-  for (const [k, v] of Object.entries(over)) out[k] = isObj(v) && isObj(base[k]) ? deepMerge(base[k], v) : v;
+  for (const [k, v] of Object.entries(over)) {
+    if (UNSAFE_KEYS.has(k)) continue;
+    out[k] = isObj(v) && isObj(base[k]) ? deepMerge(base[k], v) : v;
+  }
   return out;
 }
 
@@ -78,12 +83,14 @@ export function saveUserConfig(cfg) {
 
 /** Set a dotted key ("budgets.claudeWeeklyUsd") in the user config file. */
 export function setConfigValue(key, raw) {
+  if (typeof key !== 'string' || !key || raw == null) throw new Error('Usage: tandem config set <dotted.key> <value>');
+  const parts = key.split('.');
+  if (parts.some((p) => !p || UNSAFE_KEYS.has(p))) throw new Error(`Invalid config key "${key}"`);
   const cfg = readUserConfig();
   let value = raw;
   if (raw === 'null') value = null;
   else if (raw === 'true' || raw === 'false') value = raw === 'true';
-  else if (raw !== '' && !Number.isNaN(Number(raw))) value = Number(raw);
-  const parts = key.split('.');
+  else if (raw.trim() !== '' && Number.isFinite(Number(raw))) value = Number(raw);
   let node = cfg;
   for (const p of parts.slice(0, -1)) node = isObj(node[p]) ? node[p] : (node[p] = {});
   node[parts.at(-1)] = value;

@@ -62,14 +62,17 @@ function tools(expose) {
 
 async function callTool(name, a, expose, cfg) {
   const text = (t, isError = false) => ({ content: [{ type: 'text', text: t }], isError });
-  if (name === 'route_task') return text(JSON.stringify(route(String(a.task || ''), summarize(readRecords(), cfg).budget), null, 2));
+  if (name === 'route_task') {
+    if (typeof a.task !== 'string' || !a.task) return text('task (string) is required', true);
+    return text(JSON.stringify(route(a.task, summarize(readRecords(), cfg).budget), null, 2));
+  }
   if (name === 'tandem_stats') {
     const s = summarize(readRecords(), cfg);
     return text(JSON.stringify({ totals: s.totals, savings: s.savings, budget: s.budget }, null, 2));
   }
   const agent = name === 'ask_gemini' ? 'gemini' : name === 'ask_claude' ? 'claude' : null;
   if (!agent || !tools(expose).some((t) => t.name === name)) return text(`Unknown tool ${name}`, true);
-  if (!a.prompt) return text('prompt is required', true);
+  if (typeof a.prompt !== 'string' || !a.prompt) return text('prompt (string) is required', true);
   let model = a.model;
   let category = null;
   if (agent === 'gemini' && !model) {
@@ -93,7 +96,11 @@ export function serve(expose, cfg) {
     if (!line.trim()) return;
     let msg;
     try { msg = JSON.parse(line); } catch { return send({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }); }
-    const { id, method, params = {} } = msg;
+    if (!msg || typeof msg !== 'object' || Array.isArray(msg) || typeof msg.method !== 'string') {
+      return send({ jsonrpc: '2.0', id: msg?.id ?? null, error: { code: -32600, message: 'Invalid Request' } });
+    }
+    const { id, method } = msg;
+    const params = msg.params && typeof msg.params === 'object' ? msg.params : {};
     if (id === undefined) return; // notification (e.g. notifications/initialized)
     try {
       let result;

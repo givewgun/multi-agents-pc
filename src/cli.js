@@ -15,7 +15,10 @@ export function parseArgs(argv) {
     if (a === '--') { out._.push(...argv.slice(i + 1)); break; }
     if (a.startsWith('--')) {
       const [k, v] = a.slice(2).split(/=(.*)/s);
-      if (v !== undefined) out.flags[k] = v;
+      if (v !== undefined && BOOL.has(k)) {
+        if (v !== 'true' && v !== 'false') throw new Error(`--${k} takes true or false, got "${v}"`);
+        out.flags[k] = v === 'true';
+      } else if (v !== undefined) out.flags[k] = v;
       else if (BOOL.has(k)) out.flags[k] = true;
       else out.flags[k] = argv[++i];
     } else if (a === '-h') out.flags.help = true;
@@ -33,6 +36,7 @@ function parseDuration(s) {
 
 async function readStdin() {
   if (process.stdin.isTTY) return '';
+  process.stdin.setEncoding('utf8'); // decode across chunk boundaries
   let s = '';
   for await (const chunk of process.stdin) s += chunk;
   return s;
@@ -114,9 +118,11 @@ ${diff}
 </diff>`;
 
 async function cmdReview(rest, flags, cfg) {
+  if (flags.staged && flags.base) throw new Error('Use either --staged or --base, not both');
+  if (flags.base && String(flags.base).startsWith('-')) throw new Error(`Invalid --base "${flags.base}"`);
   const gitArgs = ['diff', '--no-color', '--no-ext-diff'];
   if (flags.staged) gitArgs.push('--staged');
-  if (flags.base) gitArgs.push(`${flags.base}...HEAD`);
+  if (flags.base) gitArgs.push(`${flags.base}...HEAD`, '--');
   const diff = execFileSync('git', gitArgs, { cwd: flags.cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   if (!diff.trim()) { console.log('No changes to review.'); return; }
   const who = flags.agent || 'gemini';
@@ -125,9 +131,13 @@ async function cmdReview(rest, flags, cfg) {
   const runs = await Promise.all(agents.map((a) => callAndLog(a, {
     prompt, model: a === 'gemini' ? (flags['gemini-model'] || 'neon') : (flags['claude-model'] || 'sonnet'), cwd: flags.cwd,
   }, { from: 'user', category: 'review', tag: flags.tag }, cfg)));
-  for (const { res, rec } of runs) {
-    if (agents.length > 1) console.log(c.bold(`\n── ${res.agent} (${res.model}) ──`));
-    printResult(res, rec, flags);
+  if (flags.json) {
+    process.stdout.write(JSON.stringify(runs.map(({ res, rec }) => ({ ...res, stderr: undefined, record: rec })), null, 2) + '\n');
+  } else {
+    for (const { res, rec } of runs) {
+      if (agents.length > 1) console.log(c.bold(`\n── ${res.agent} (${res.model}) ──`));
+      printResult(res, rec, flags);
+    }
   }
   process.exitCode = runs.every((r) => r.res.ok) ? 0 : 1;
 }
@@ -163,7 +173,7 @@ function printBudget(b) {
 function cmdBudget(rest, flags, cfg) {
   if (rest[0] === 'set') {
     const map = { claude: 'budgets.claudeWeeklyUsd', 'gemini-5h': 'budgets.gemini5hCalls', 'gemini-week': 'budgets.geminiWeeklyCalls', warn: 'budgets.warnAt', 'claude-plan': 'subscriptions.claude.monthlyUsd', 'gemini-plan': 'subscriptions.gemini.monthlyUsd' };
-    const key = map[rest[1]];
+    const key = Object.hasOwn(map, rest[1]) ? map[rest[1]] : null;
     if (!key || rest[2] == null) throw new Error(`Usage: tandem budget set <${Object.keys(map).join('|')}> <value>`);
     console.log(`${key} = ${setConfigValue(key, rest[2])}`);
     return;
@@ -172,8 +182,9 @@ function cmdBudget(rest, flags, cfg) {
 }
 
 function cmdLog(rest, flags) {
-  const n = Number(flags.n || 20);
-  const recs = readRecords().slice(-n);
+  const n = flags.n == null ? 20 : Number(flags.n);
+  if (!Number.isInteger(n) || n < 0) throw new Error('--n must be a non-negative integer');
+  const recs = n === 0 ? [] : readRecords().slice(-n);
   if (flags.json) return void process.stdout.write(JSON.stringify(recs, null, 2) + '\n');
   for (const r of recs) {
     const color = r.status === 'ok' ? c.green : r.status === 'denied' ? c.yellow : c.red;

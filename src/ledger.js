@@ -56,7 +56,9 @@ export function readRecords() {
   const out = [];
   for (const line of readFileSync(p, 'utf8').split('\n')) {
     if (!line.trim()) continue;
-    try { out.push(JSON.parse(line)); } catch { /* skip torn line */ }
+    let r;
+    try { r = JSON.parse(line); } catch { continue; /* torn line */ }
+    if (r && typeof r === 'object' && typeof r.ts === 'string' && typeof r.to === 'string') out.push(r);
   }
   return out;
 }
@@ -80,11 +82,13 @@ export function summarize(records, cfg, now = Date.now()) {
   const week = since(7 * 24 * H);
   const fiveH = since(5 * H);
 
-  const byAgent = { claude: bucket(), gemini: bucket() };
-  const byModel = {};
-  const byDay = {};
-  const byCategory = {};
-  const edges = {};
+  // Null-prototype maps: keys come from ledger data ("constructor" must not collide).
+  const map = () => Object.create(null);
+  const byAgent = Object.assign(map(), { claude: bucket(), gemini: bucket() });
+  const byModel = map();
+  const byDay = map();
+  const byCategory = map();
+  const edges = map();
   for (const r of records) {
     add(byAgent[r.to] ||= bucket(), r);
     add(byModel[r.model || r.to] ||= bucket(), r);
@@ -100,7 +104,11 @@ export function summarize(records, cfg, now = Date.now()) {
     .reduce((s, r) => s + (r.claudeEquivUsd || 0), 0);
 
   const b = cfg.budgets || {};
-  const ratio = (used, cap) => (cap ? used / cap : null);
+  // cap 0 = "none allowed" → exhausted (1, since Infinity doesn't survive JSON); null/negative/invalid = unset.
+  const ratio = (used, cap) => {
+    if (typeof cap !== 'number' || !Number.isFinite(cap) || cap < 0) return null;
+    return cap === 0 ? Math.max(1, used) : used / cap;
+  };
   const lastQuota = [...records].reverse().find((r) => r.to === 'gemini' && r.status === 'quota');
 
   const sub = cfg.subscriptions || {};

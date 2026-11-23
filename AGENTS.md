@@ -18,6 +18,12 @@ Rule of thumb: **mostly reading or typing → Gemini. Mostly deciding → Claude
 - `node bin/tandem.js review --agent both`: dual review of `git diff`
 - Async handoffs: `handoffs/inbox/<date>-<slug>.md` from `handoffs/TEMPLATE.md`
 
+## Docs (read on demand, not up front)
+
+- `docs/ARCHITECTURE.md`: module map, contracts, verified agent-CLI facts. Read before changing `src/`.
+- `docs/adr/README.md`: one-line index of decisions. Open a single ADR only when touching its area. New decision → new ADR from `docs/adr/TEMPLATE.md`.
+- `docs/BENCHMARK.md`: latest model results. Routing changes need bench evidence (ADR 0005).
+
 ## Code rules
 
 - Node >= 18.17, ESM, **zero runtime dependencies**. Only `node:` built-ins.

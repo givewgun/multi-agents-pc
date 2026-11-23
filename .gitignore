@@ -3,3 +3,4 @@ handoffs/log/
 *.stderr.txt
 .env
 .env.*
+tmp-init/
