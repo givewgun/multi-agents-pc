@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { soloState, soloBlock } from '../src/config.js';
+import { seedUsage } from './_usage-seed.js';
 
 const BIN = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'tandem.js');
 const NOW = Date.parse('2026-11-23T12:00:00Z');
@@ -31,7 +32,7 @@ describe('soloState / soloBlock', () => {
 });
 
 describe('tandem solo (CLI + MCP)', () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'tandem-solo-'));
+  const home = seedUsage(fs.mkdtempSync(path.join(os.tmpdir(), 'tandem-solo-')));
   const env = { ...process.env, TANDEM_HOME: home };
   const cli = (...a) => spawnSync(process.execPath, [BIN, ...a], { env, encoding: 'utf8' });
 

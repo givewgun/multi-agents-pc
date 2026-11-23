@@ -7,11 +7,13 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { VERSION } from '../src/version.js';
 import { saveThread, readThreads, threadKey } from '../src/mcp.js';
+import { seedUsage } from './_usage-seed.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const binPath = path.resolve(__dirname, '..', 'bin', 'tandem.js');
 
 function startMcp(expose, tmpDir) {
+  seedUsage(tmpDir);
   const child = spawn(process.execPath, [binPath, 'mcp', '--expose', expose], {
     env: { ...process.env, TANDEM_HOME: tmpDir },
     stdio: ['pipe', 'pipe', 'pipe'],

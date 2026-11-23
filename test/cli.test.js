@@ -64,7 +64,8 @@ describe('tandem route --category', () => {
     const path = await import('node:path');
     const { fileURLToPath } = await import('node:url');
     const bin = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'tandem.js');
-    const env = { ...process.env, TANDEM_HOME: mkdtempSync(path.join(tmpdir(), 'tandem-cli-')) };
+    const { seedUsage } = await import('./_usage-seed.js');
+    const env = { ...process.env, TANDEM_HOME: seedUsage(mkdtempSync(path.join(tmpdir(), 'tandem-cli-'))) };
     const run = (...a) => spawnSync(process.execPath, [bin, 'route', ...a], { env, encoding: 'utf8' });
     const ok = JSON.parse(run('mod skyrim papyrus', '--category', 'research', '--json').stdout);
     assert.equal(ok.category, 'research');
