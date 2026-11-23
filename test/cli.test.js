@@ -55,3 +55,22 @@ describe('inferCaller', () => {
     assert.equal(inferCaller({}, { CLAUDECODE: '0', CLAUDE_CODE_ENTRYPOINT: '   ' }), 'user');
   });
 });
+
+describe('tandem route --category', () => {
+  it('uses the lead category and rejects unknown ones', async () => {
+    const { spawnSync } = await import('node:child_process');
+    const { mkdtempSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const path = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const bin = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'tandem.js');
+    const env = { ...process.env, TANDEM_HOME: mkdtempSync(path.join(tmpdir(), 'tandem-cli-')) };
+    const run = (...a) => spawnSync(process.execPath, [bin, 'route', ...a], { env, encoding: 'utf8' });
+    const ok = JSON.parse(run('mod skyrim papyrus', '--category', 'research', '--json').stdout);
+    assert.equal(ok.category, 'research');
+    assert.equal(ok.source, 'lead');
+    const bad = run('x', '--category', 'bogus');
+    assert.notEqual(bad.status, 0);
+    assert.match(bad.stderr, /Unknown category/);
+  });
+});

@@ -31,7 +31,7 @@ flowchart TD
 | `src/cli.js` | arg parsing, commands, `callAndLog` (the one path every agent call takes) | `main`, `parseArgs`, `callAndLog` |
 | `src/agents.js` | find binaries, build argv, parse output → **normalized result** | `askGemini`, `askClaude`, `ask`, `lastJsonLine`, `streamResult`, `classifyFailure` |
 | `src/proc.js` | spawn without shell, timeout + tree kill, `.cmd` shim guard | `run`, `which` |
-| `src/router.js` | weighted regex rules + budget overrides | `RULES`, `route` |
+| `src/router.js` | lead's `category` or weighted regex fallback, then pins + budget + partner rules | `RULES`, `CATEGORIES`, `route`, `checkCategory` |
 | `src/ledger.js` | record build, append/read JSONL, cost math, aggregates | `makeRecord`, `appendRecord`, `readRecords`, `summarize`, `claudeEquivalentUsd` |
 | `src/hooks.js` | Stop hooks (`tandem hook claude\|gemini`): reconcile each session's transcript total vs. logged, log the delta as `tag: interactive`; `sweep` catches late-written tokens; installs the Claude hook | `runHook`, `reconcile`, `sweep`, `installClaudeHook`, `hookCommand` |
 | `src/transcripts.js` | read native transcripts for `tandem show` + dashboard (no prompt copies) | `readTranscript`, `parseClaudeTranscript`, `parseGeminiTranscript` |
@@ -51,7 +51,8 @@ flowchart TD
 - **Normalized result** (agents.js `result()`): `{agent, model, ok, status, text, sessionId, usage{input,output,thinking,cacheRead,cacheWrite,total}, costUsd, durationMs, turns, denied[], error, stderr}`. `status ∈ ok|error|quota|auth|timeout|denied|missing`.
 - **Ledger record v1** (ledger.js `makeRecord`): append-only JSONL. Add fields, never rename. Bump `v` on breaking change.
 - **Summary shape** (`summarize`): consumed by the dashboard, MCP `tandem_stats` and the router. Change all three together. `budget` = `planBudget()`: `{warnAt, geminiQuotaHitAt, claude|gemini: {known, at, ageMs, source, status, fiveHour{used,resetsAt}, weekly{…}, other?, limits{fiveHour,weekly}, exhausted, warn}}`.
-- **Router rule**: `{category, agent, model(alias), weight, re, reason}`. `category` names are shared with bench tasks.
+- **Router rule**: `{category, agent, model(alias), weight, re, reason}`. `category` names are shared with bench tasks. `general` (no match → gemini:neon) is a fallback, not a rule.
+- **Route pick**: `{category, agent, model, reason, confidence, source: 'lead'|'rules', needsJudgment, alternatives, notes, partnerRequired, lead?, self?}`. `route(task, budget, {lead, pins, category})`: a valid `category` skips the regex; unknown ones throw.
 
 ## Agent CLI facts (verified 2026-11-23, agy 1.5.14, claude 2.1.330)
 

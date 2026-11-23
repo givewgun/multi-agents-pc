@@ -20,5 +20,5 @@ Using an LLM to route tasks spends tokens and adds latency on every call, which 
 - Zero-token, fast, explainable, and unit-testable routing.
 
 **Trade-offs**
-- Keyword matching can miss nuanced intent. Mitigated by returning `confidence` + `alternatives`, plus `--model`, `tandem prefer`, and `tandem pin`.
+- Keyword matching can miss nuanced intent. *Superseded in part by [0012](0012-lead-classifies.md): the lead passes `category`; regex is the fallback.* Mitigated by returning `confidence` + `alternatives`, plus `--model`, `tandem prefer`, and `tandem pin`.
 - Current bench tasks are small single-shot puzzles; keeping `hard-debug` on Claude remains a judgment call until multi-file benchmarks exist.

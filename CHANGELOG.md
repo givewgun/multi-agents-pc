@@ -5,6 +5,17 @@ All notable changes to `tandem-agents` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Routing: the lead classifies. `route_task`, `ask_gemini`, `ask_claude` take a `category` (MCP enum); CLI `route`/`run`/`ask` take `--category`. The lead has read the task, tandem's regex has not; tandem keeps pins, budgets, no-self-review and `self: true`.
+- No keyword match now routes to `general` → Gemini Neon (was `trivial` → Flash Low for any prompt under 160 chars). Short is not easy: "mod a Skyrim Papyrus script" went to the weakest model.
+- Picks report `source` (`lead`/`rules`) and `needsJudgment` (no match, tie, or mixed intent; mixed intent adds a "split into subtasks" note).
+- Skills and AGENTS rules tell the lead to decompose and classify before routing.
+
+### Fixed
+- MCP `ask_*` without `model` now routes with the lead, so partner-only categories (review) pick the right model.
+
 ## [0.3.0] - 2026-11-23
 
 ### Added

@@ -110,9 +110,9 @@ async function cmdAsk(rest, flags, cfg) {
 
 async function cmdRoute(rest, flags, cfg) {
   const task = await promptFrom(rest, flags);
-  const pick = route(task, await currentBudget(cfg), { pins: cfg.routing?.pins, lead: flags.lead });
+  const pick = route(task, await currentBudget(cfg), { pins: cfg.routing?.pins, lead: flags.lead, category: flags.category });
   if (flags.json) return void process.stdout.write(JSON.stringify(pick, null, 2) + '\n');
-  console.log(`${c.bold(pick.agent)} ${c.cyan(pick.model)}  ${c.dim(`[${pick.category}, confidence ${pct(pick.confidence)}]`)}`);
+  console.log(`${c.bold(pick.agent)} ${c.cyan(pick.model)}  ${c.dim(`[${pick.category}, ${pick.source === 'lead' ? 'your category' : `confidence ${pct(pick.confidence)}`}]`)}`);
   console.log(pick.reason);
   for (const n of pick.notes) console.log(c.yellow(`! ${n}`));
   if (pick.needsJudgment) console.log(c.yellow(`! Keyword guess only: re-run with --category <${CATEGORIES.join('|')}>`));
@@ -278,7 +278,7 @@ function cmdConfig(rest) {
   console.log(JSON.stringify({ file: configPath(), ledger: ledgerPath(), user: readUserConfig(), effective: loadConfig() }, null, 2));
 }
 
-const PIN_CATEGORIES = new Set([...RULES.map((r) => r.category), 'trivial', 'general']);
+const PIN_CATEGORIES = new Set(CATEGORIES);
 
 function validateModel(agent, model) {
   if (agent === 'claude') {

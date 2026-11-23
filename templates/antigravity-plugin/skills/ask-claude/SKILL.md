@@ -10,7 +10,7 @@ description: >-
 
 1. **Worth a Claude call?** Claude's plan window is scarcer (~70k token overhead per headless call).
    - **Call Claude for:** final diff review, plan critique, bugs stuck after 2 attempts, high-stakes architecture decisions.
-   - **Do it yourself for:** reading many files, web research, boilerplate, tests, UI. Check `route_task` (`self: true` → do it yourself).
+   - **Do it yourself for:** reading many files, web research, boilerplate, tests, UI. Classify the task yourself and check `route_task` with that `category` (`self: true` → do it yourself).
 2. **Pick model:** if the user named a model, use exactly that. Otherwise default to `sonnet`; use `opus` only for genuinely hard problems (`haiku` for tiny checks).
 3. **Keep it lean & batched:** send diffs, file paths, or concise summaries — never file dumps. Batch related questions into one call.
 4. **Call `ask_claude`** (always pass `cwd: "<active workspace path>"` so Claude can read the repo, plus a shared `thread: "<short-slug>"` across related calls for one warm session):

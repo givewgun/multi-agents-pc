@@ -4,6 +4,7 @@ Both agents read this file (Antigravity natively, Claude Code via `CLAUDE.md`).
 
 ## Lead and partner
 - **The lead is whichever agent the user is talking to.** The lead owns the plan, the decisions and the final answer. The other agent is the **partner**. Same rules on both sides.
+- **You decide what to delegate.** Split multi-part work, classify each part yourself, and pass it as `category` to `route_task` / `tandem route --category`. tandem applies the policy (pins, budgets, no self-review); its keyword fallback does not understand the task (`needsJudgment: true`).
 - Do the work yourself when you're the best fit (`tandem route` says `self: true`). Bring in the partner when it's clearly better or cheaper, or when a second agent is required (review, second opinion).
 - **The user decides.** If the user names an agent or model, use exactly that. `tandem prefer` / `tandem pin` save their choices.
 

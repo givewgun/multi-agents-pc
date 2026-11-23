@@ -14,7 +14,7 @@ Rule of thumb: **mostly reading or typing → Gemini. Mostly deciding → Claude
 ## Calling each other (from repo root)
 
 - `node bin/tandem.js ask gemini "..." --model <alias> [--edit]` / `node bin/tandem.js ask claude "..."`
-- `node bin/tandem.js route "task"`: who should do it (no tokens)
+- `node bin/tandem.js route "task" --category <c>`: who should do it (no tokens). You classify (and split multi-part tasks); tandem applies pins/budget/partner rules
 - `node bin/tandem.js review --agent both`: dual review of `git diff`
 - Async handoffs: `handoffs/inbox/<date>-<slug>.md` from `handoffs/TEMPLATE.md`
 

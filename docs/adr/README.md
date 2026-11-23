@@ -15,3 +15,4 @@ Read the one-liner first. Open the file only if you're touching that area. New d
 | [0009](0009-plan-window-budgets.md) | Budgets = % of each plan's 5h/weekly window, read from `claude` rate_limit_event and free `agy /usage` | accepted |
 | [0010](0010-lead-partner-protocol.md) | Lead = agent the user talks to; partner for review/second opinion; user pins > budget > rules | accepted |
 | [0011](0011-native-transcripts-and-hooks.md) | Read native transcripts (no prompt copies); Stop hooks log direct work; `TANDEM_MANAGED` prevents double count | accepted |
+| [0012](0012-lead-classifies.md) | Lead LLM classifies + decomposes (`category`); router = policy; no match → `general` Neon, not Flash Low | accepted |
