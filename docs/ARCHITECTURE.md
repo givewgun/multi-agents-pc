@@ -28,7 +28,7 @@ tandem = thin orchestration layer over two *headless agent CLIs*. It owns no mod
 | `src/ledger.js` | record build, append/read JSONL, cost math, aggregates | `makeRecord`, `appendRecord`, `readRecords`, `summarize`, `claudeEquivalentUsd` |
 | `src/config.js` | defaults ⊕ `~/.tandem/config.json`, aliases, pricing | `loadConfig`, `setConfigValue`, `resolve*Model` |
 | `src/mcp.js` | MCP server, newline JSON-RPC 2.0, tools depend on `--expose` | `serve` |
-| `src/init.js` | copy `templates/` into a project, write MCP configs | `init` |
+| `src/init.js` | copy `templates/` into a project + MCP configs; `--global`: `~/.claude/skills`, `~/.gemini/config/{rules,mcp_config.json}`, `claude mcp add --scope user` | `init`, `initGlobal` |
 | `src/doctor.js` | install/auth/permission checks, `--live` pings | `doctor` |
 | `src/dashboard/` | `server.js` (127.0.0.1 http, `/api/summary`) + single-file `index.html` | `startDashboard` |
 | `src/bench/` | graded tasks (`tasks.js`), runner + router check (`run.js`) | `TASKS`, `bench`, `analyze` |
@@ -46,6 +46,7 @@ tandem = thin orchestration layer over two *headless agent CLIs*. It owns no mod
 - `agy -p "<prompt>" --output-format json` → `{conversation_id,status,response,error,duration_seconds,num_turns,usage{input_tokens,output_tokens,thinking_tokens,cache_read_tokens,total_tokens},denied_actions[]}`.
 - `agy --input-format stream-json --output-format stream-json` (no `-p`) reads `{"event":"user","message":{"content":...}}` from stdin, result in the `{"event":"result","result":{...}}` line.
 - agy headless: no `--mode` = edits + commands soft-denied (exit 0, `denied_actions`). `--mode plan` is *not* read-only. `--mode accept-edits` = edits ok, commands still need `permissions.allow` in `~/.gemini/antigravity-cli/settings.json`. Reads outside workspace denied.
+- agy MCP tools in headless need `mcp(<server>/<tool>)` in `permissions.allow`. Antigravity may create an empty `~/.gemini/config/mcp_config.json` (treat as `{}`).
 - `claude -p` reads prompt from stdin. JSON: `{result,is_error,session_id,usage{input_tokens,cache_creation_input_tokens,cache_read_input_tokens,output_tokens},total_cost_usd,num_turns,duration_ms,permission_denials[]}`. ~70k tokens overhead per call.
 
 ## Extending

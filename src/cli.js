@@ -6,7 +6,7 @@ import { makeRecord, appendRecord, readRecords, summarize, ledgerPath } from './
 import { route } from './router.js';
 import { usd, tok, ms, pct, c, bar, table } from './format.js';
 
-const BOOL = new Set(['edit', 'json', 'force', 'mcp', 'open', 'no-fallback', 'staged', 'help', 'quiet', 'dry-run', 'live']);
+const BOOL = new Set(['edit', 'json', 'force', 'mcp', 'open', 'no-fallback', 'staged', 'help', 'quiet', 'dry-run', 'live', 'global']);
 
 export function parseArgs(argv) {
   const out = { _: [], flags: {} };
@@ -211,6 +211,7 @@ const HELP = `tandem — Claude Code + Gemini (Antigravity) as one team
   tandem dashboard [--port 4777]        local web UI
   tandem bench [--models a,b] [--tasks x,y] [--repeat n]   benchmark models on graded tasks
   tandem init [dir] [--mcp]             add AGENTS.md, CLAUDE.md, skills, rules to a project
+  tandem init --global                  once per machine: /gemini skill, agy rule, MCP in both agents
   tandem doctor                         check installs, logins, permissions
   tandem mcp [--expose gemini|claude|both]   MCP server so agents call each other as tools
   tandem config [set <key> <value>|path]
@@ -231,7 +232,10 @@ export async function main(argv) {
     case 'budget': return cmdBudget(rest, flags, cfg);
     case 'log': return cmdLog(rest, flags, cfg);
     case 'config': return cmdConfig(rest, flags, cfg);
-    case 'init': return (await import('./init.js')).init(rest[0] || '.', flags);
+    case 'init': {
+      const mod = await import('./init.js');
+      return flags.global ? mod.initGlobal(flags) : mod.init(rest[0] || '.', flags);
+    }
     case 'doctor': return (await import('./doctor.js')).doctor(cfg, flags);
     case 'mcp': return (await import('./mcp.js')).serve(flags.expose || 'gemini', cfg);
     case 'dashboard': return (await import('./dashboard/server.js')).startDashboard(Number(flags.port || 4777), cfg, flags);

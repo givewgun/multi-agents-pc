@@ -71,6 +71,17 @@ describe('review regressions', () => {
     assert.throws(() => runCases('while (true) {}', ['1'], 1500), /timed out/);
   });
 
+  it('init --mcp merges into an empty config file (Antigravity creates one)', async () => {
+    const { init } = await import('../src/init.js');
+    const dir = path.join(tmp, 'proj');
+    fs.mkdirSync(path.join(dir, '.agents'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.agents', 'mcp_config.json'), '');
+    const log = console.log; console.log = () => {};
+    try { init(dir, { mcp: true }); } finally { console.log = log; }
+    const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.agents', 'mcp_config.json'), 'utf8'));
+    assert.ok(cfg.mcpServers.tandem.args.includes('claude'));
+  });
+
   it('mcp answers invalid requests instead of crashing', async () => {
     const child = spawn(process.execPath, [BIN, 'mcp'], { env: { ...process.env, TANDEM_HOME: tmp } });
     let out = '';

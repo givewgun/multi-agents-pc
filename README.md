@@ -23,7 +23,10 @@ Prerequisites: [Claude Code](https://claude.com/claude-code) and the [Antigravit
 ```bash
 npm install -g github:givewgun/multi-agents-pc   # npm package coming: tandem-agents
 tandem doctor --live
+tandem init --global    # once per machine: ask_gemini in Claude Code, ask_claude in Antigravity, /gemini skill, agy rule
 ```
+
+Restart Claude Code and Antigravity afterwards. Daily habits: [docs/DAILY.md](docs/DAILY.md).
 
 ## Quick start
 
@@ -52,6 +55,7 @@ Inside Claude Code, say *"use gemini for the grunt work"*. The `/gemini` skill a
 | `tandem dashboard [--port 4777] [--open]` | Local web UI (binds 127.0.0.1 only) |
 | `tandem bench [--models gemini:flash,claude:haiku] [--tasks id,id] [--repeat n] [--out file.md]` | Benchmark models |
 | `tandem init [dir] [--mcp] [--force]` | Add team files to a project |
+| `tandem init --global [--force]` | Once per machine: user-scope MCP in Claude Code + Antigravity, `/gemini` skill, agy rule |
 | `tandem mcp [--expose gemini\|claude\|both]` | MCP stdio server |
 | `tandem doctor [--live]` | Check installs, sign-ins, permissions |
 
