@@ -6,13 +6,13 @@
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-0-blue.svg)](#)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-**Run Claude Code and Gemini (Google Antigravity) as one team — using the subscriptions you already pay for.**
+**Run Claude Code and Gemini (Google Antigravity) as one team — fewer blind spots, smoother flow, using the subscriptions you already pay for.**
 
-Already paying for Claude and Google AI Pro/Ultra, but mostly burning through one while the other sits idle? **tandem** connects them over MCP and CLI with **no API keys** and **zero runtime dependencies**. Talk to whichever agent you prefer: it handles what it's best at, delegates the heavy lifting to its partner, *never* self-reviews, routes around rate limits automatically, and shows you how much Claude quota you saved.
+Already paying for Claude and Google AI Pro/Ultra, but mostly using one while the other sits idle? **tandem** connects them over MCP and CLI with **no API keys** and **zero runtime dependencies**. Talk to whichever agent you prefer: it handles what it's best at, brings in a *different model family* to critique plans, review diffs, and unstick hard bugs (no self-review), delegates heavy reading/boilerplate/research, and routes around 5-hour rate limits so you stay in flow.
 
 > **Too lazy to read?** Start with the **[60-second ELI5 guide](docs/ELI5.md)** — plain English, zero jargon.
 >
-> Rule of thumb: **mostly reading or typing → Gemini. Mostly deciding → Claude.**
+> Rule of thumb: **mostly reading or typing → Gemini. Mostly deciding → Claude. Review or stuck → always the other agent.**
 
 ## How it works
 
@@ -33,14 +33,19 @@ flowchart LR
   L --> D["Local Dashboard (127.0.0.1:4777)"]
 ```
 
-- **Either agent can lead.** Talk to Claude in Claude Code or Gemini in Antigravity — the same team rules apply. Reviews and second opinions always go to the *other* agent (no self-review).
-- **Zero-token routing.** `tandem route "task"` picks the best agent and model with benchmark-checked rules and spends no tokens. User pins (`tandem pin`) always win.
-- **Plan-aware budgets.** Reads real 5-hour and weekly usage from both plans (`agy /usage` is free; Claude reports `rate_limit_event` on every call). When one plan nears your cap, tandem automatically steers work to the other.
-- **Ledger, Stop hooks & native transcripts.** Logs both delegated and direct interactive work, prices Gemini work at Claude list rates to estimate Claude usage offloaded, and lets you inspect or resume any exchange (`tandem show`) without copying prompts.
-- **Local dashboard.** Single-file web UI on `127.0.0.1` showing who did the work, budget meters, per-model stats, call timeline, and full conversations.
+- **Either agent can lead — and never self-reviews.** Talk to Claude in Claude Code or Gemini in Antigravity; the same team rules apply. Plan critiques, code reviews, and second opinions always go to the *other* model family with a fresh context, catching blind spots the author misses.
+- **Complementary strengths, zero-token routing.** `tandem route "task"` matches work to each agent's strengths (Google Search grounding, huge cheap context, UI/browser on Gemini; deep reasoning and surgical critique on Claude) without spending tokens. User pins (`tandem pin`) always win.
+- **Uninterrupted flow with plan-aware budgets.** Reads real 5-hour and weekly usage from both plans (`agy /usage` is free; Claude reports `rate_limit_event` on every call). When one plan nears your cap, tandem automatically steers work to the other instead of stopping your session cold.
+- **Ledger, Stop hooks & native transcripts.** Logs both delegated and direct interactive work, estimates Claude usage offloaded, and lets you inspect or resume any exchange (`tandem show`) without copying prompts.
+- **Local dashboard.** Single-file web UI on `127.0.0.1` showing who did the work, call flow between agents, budget meters, per-model stats, and full conversations.
 - **Benchmark-backed.** `tandem bench` grades models on real coding tasks so routing rules rest on data, not vibes.
 
 Zero dependencies. Node 18.17+. Windows, macOS, and Linux.
+
+### When two agents actually help (and when they don't)
+
+- **Worth pairing:** cross-model code reviews and plan critiques (fresh context, different priors), breaking tunnel vision after 2 failed debug attempts, offloading large codebase reads / boilerplate / tests / web research, and keeping flow during long sessions near a 5-hour cap.
+- **Stay solo:** small, tightly-coupled edits where one agent already holds the mental model — context handoffs are lossy and add latency. `tandem route --lead <you>` marks those `self: true` so the lead just does them directly.
 
 ## Install
 
@@ -143,7 +148,7 @@ What it shows:
 4. **Orchestrator is overkill for single-shot tasks** (1.1 min average). Use it for multi-file agentic builds.
 5. On these tasks Gemini matched Claude on the "hard" reasoning ones. Hard-debug still routes to Claude, because real bugs carry more context and a wrong answer costs more. Treat that as a judgment call this benchmark doesn't settle.
 
-Limits: one run per cell, small single-shot tasks, no multi-file edit tasks yet. Run `tandem bench --repeat 3` on your own machine and plan.
+Limits: one run per cell, small single-shot tasks, and these currently measure *individual models* rather than *solo vs. tandem team* on multi-file engineering work. Run `tandem bench --repeat 3` on your own machine — and PRs adding realistic multi-file / team-vs-solo benchmark tasks are very welcome.
 
 ## How savings are computed
 

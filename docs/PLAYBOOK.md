@@ -1,6 +1,12 @@
 # Claude + Gemini Playbook
 
-Two subscriptions, one team. Main rule: **Claude thinks, Gemini lifts.** Claude's limits are the scarce, expensive part. Gemini (Google AI Pro / Ultra via Antigravity) is flat-rate and refills every 5 hours up to a weekly cap. Push volume to Gemini and keep judgment with Claude. `tandem` measures whether that's actually paying off.
+Two subscriptions, one team — for **better catch rate** and **longer uninterrupted flow**, not just stretching quota.
+
+- **Quality:** different model families don't share the same blind spots. Use cross-model review for plans and diffs, and bring in the partner after 2 failed debug attempts to break tunnel vision.
+- **Flow & capacity:** Claude's 5-hour/weekly limits are tighter; Gemini (Google AI Pro / Ultra via Antigravity) has generous context, Google Search grounding, and browser/UI tools. Split work by strength so you stay in flow instead of hitting reset walls.
+- **When to stay solo:** small, tightly-coupled edits where one agent already holds the full mental model — passing context across agents adds latency and lossy summaries.
+
+`tandem` wires the two together and lets you measure what's actually paying off.
 
 ## 1. Surfaces
 

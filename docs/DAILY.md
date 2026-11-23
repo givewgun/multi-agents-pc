@@ -36,11 +36,12 @@ tandem log                             # what happened today
 tandem dashboard --open                # savings, budget, flow
 ```
 
-## Habits that save the most
+## Habits that pay off the most
 
-1. **Claude gets few, big jobs.** Each Claude call costs ~70k tokens of overhead (bench). Batch questions.
-2. **Review = Gemini first, Claude last.** `tandem review --agent gemini` on every diff, `--agent claude` only on ones that matter.
-3. **Commit before `--edit`.** Makes the other agent's changes one `git diff` away.
-4. **Weekly look at `tandem stats`.** Gemini share < 50%? You're paying Claude for typing.
-5. **Check `tandem usage` before a big session.** It shows both plans' 5h/weekly windows and reset times. A plan at its limit gets routed around automatically. Claude's limit defaults to 80% so your own sessions keep headroom.
-6. **Not sure the routing fits your work?** Add a task to `src/bench/tasks.js`, run `tandem bench`, change the rule (ADR 0005).
+1. **Never let an agent review its own important work.** Ask the *other* agent to critique non-trivial plans and diffs (`tandem review --agent claude`, `tandem review --agent both`, or `/pair`). Different model families catch different blind spots.
+2. **Use the 2-strike rule for stuck bugs.** After two failed fix attempts by the lead, ask the partner for 3 alternative hypotheses instead of letting one agent dig deeper into a bad assumption.
+3. **Skip delegation on tiny, tightly-coupled edits.** Handoffs cost context and latency; if the lead already holds the mental model, let it finish the edit itself (`tandem route --lead <you>` marks these `self: true`).
+4. **Give Claude fewer, bigger jobs.** Each headless Claude call carries ~70k tokens of overhead (bench). Batch questions and send diffs or concise summaries.
+5. **Commit before `--edit`.** Makes the partner's changes one `git diff` away.
+6. **Check `tandem usage` and `tandem stats` periodically.** Keep headroom for your own interactive sessions (Claude's default tandem cap is 80%), and notice if you're burning Claude on mechanical typing.
+7. **Not sure the routing fits your work?** Add a task to `src/bench/tasks.js`, run `tandem bench`, and tune the rule (ADR 0005).
