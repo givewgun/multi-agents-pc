@@ -31,11 +31,13 @@ describe('route()', () => {
     assert.equal(pick.model, 'neon');
   });
 
-  it('routes short unknown tasks to gemini/flash-low (trivial)', () => {
-    const pick = route('ping pong');
-    assert.equal(pick.category, 'trivial');
+  it('routes unmatched tasks to general/neon and asks the lead to classify (short is not easy)', () => {
+    const pick = route('need to mod skyrim and modify papyrus script of enb');
+    assert.equal(pick.category, 'general');
     assert.equal(pick.agent, 'gemini');
-    assert.equal(pick.model, 'flash-low');
+    assert.equal(pick.model, 'neon');
+    assert.equal(pick.needsJudgment, true);
+    assert.equal(pick.source, 'rules');
   });
 
   it('routes bulk reading to gemini/neon (bench: exact on long inputs)', () => {

@@ -5,7 +5,7 @@ import { ask, findAgy, shellDeniedHint } from './agents.js';
 import { run as spawnRun } from './proc.js';
 import { makeRecord, appendRecord, readRecords, summarize, ledgerPath, planBudget } from './ledger.js';
 import { getUsage, storeSnapshot } from './usage.js';
-import { route, RULES, parsePin } from './router.js';
+import { route, RULES, parsePin, CATEGORIES, checkCategory } from './router.js';
 import { usd, tok, ms, pct, c, bar, table } from './format.js';
 import { VERSION } from './version.js';
 
@@ -103,7 +103,7 @@ async function cmdAsk(rest, flags, cfg) {
     conversation: flags.continue, resume: flags.continue, cwd: flags.cwd,
     timeoutMs: parseDuration(flags.timeout), maxTurns: flags['max-turns'] ? Number(flags['max-turns']) : undefined,
     addDirs: list(flags['add-dir']), allow: list(flags.allow),
-  }, { from, tag: flags.tag, thread: flags.thread || null, lead: inferLead(flags, from) }, cfg);
+  }, { from, category: checkCategory(flags.category), tag: flags.tag, thread: flags.thread || null, lead: inferLead(flags, from) }, cfg);
   printResult(res, rec, flags);
   exitFor(res);
 }
@@ -115,6 +115,7 @@ async function cmdRoute(rest, flags, cfg) {
   console.log(`${c.bold(pick.agent)} ${c.cyan(pick.model)}  ${c.dim(`[${pick.category}, confidence ${pct(pick.confidence)}]`)}`);
   console.log(pick.reason);
   for (const n of pick.notes) console.log(c.yellow(`! ${n}`));
+  if (pick.needsJudgment) console.log(c.yellow(`! Keyword guess only: re-run with --category <${CATEGORIES.join('|')}>`));
   if (pick.alternatives.length) console.log(c.dim(`alternatives: ${pick.alternatives.map((a) => `${a.agent}/${a.model} (${a.category})`).join(', ')}`));
 }
 
@@ -123,7 +124,7 @@ async function cmdRun(rest, flags, cfg) {
   if (!prompt) throw new Error('Usage: tandem run "task" [--edit] [--no-fallback]');
   const from = inferCaller(flags);
   const lead = inferLead(flags, from);
-  const pick = route(prompt, await currentBudget(cfg), { pins: cfg.routing?.pins, lead });
+  const pick = route(prompt, await currentBudget(cfg), { pins: cfg.routing?.pins, lead, category: flags.category });
   const model = flags.model || pick.model;
   process.stderr.write(c.dim(`→ ${pick.agent}/${model} (${pick.category}): ${pick.reason}\n`));
   for (const n of pick.notes) process.stderr.write(c.yellow(`! ${n}\n`));
@@ -448,9 +449,9 @@ async function cmdShow(rest, flags) {
 
 const HELP = `tandem — Claude Code + Gemini (Antigravity) as one team
 
-  tandem ask <gemini|claude> "prompt"   one call  [--model m] [--edit] [--file f] [--continue id] [--thread id] [--lead a] [--json]
-  tandem route "task"                   who should do this? (no tokens spent) [--lead a]
-  tandem run "task"                     route + call, falls back to the other agent on failure [--thread id] [--lead a]
+  tandem ask <gemini|claude> "prompt"   one call  [--model m] [--edit] [--file f] [--continue id] [--thread id] [--lead a] [--category c] [--json]
+  tandem route "task"                   who should do this? (no tokens spent) [--lead a] [--category c]
+  tandem run "task"                     route + call, falls back to the other agent on failure [--thread id] [--lead a] [--category c]
   tandem review [--agent gemini|claude|both] [--staged] [--base ref] [--thread id]   review git diff
   tandem show [last|<id>|thread:<id>]   render an exchange from its native transcript [--max 4000] [--json]
   tandem prefer [claude|gemini <model>] view or set default models

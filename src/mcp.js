@@ -11,7 +11,7 @@ import { tandemHome, loadConfig } from './config.js';
 import { shellDeniedHint } from './agents.js';
 import { sweep } from './hooks.js';
 import { getUsage } from './usage.js';
-import { route } from './router.js';
+import { route, CATEGORIES, checkCategory } from './router.js';
 import { readRecords, summarize } from './ledger.js';
 import { VERSION } from './version.js';
 
@@ -76,6 +76,7 @@ const promptProps = {
   cwd: { type: 'string', description: 'Absolute path to the project/workspace directory to run in. Always pass your active workspace path when calling from a global or plugin MCP server.' },
   edit: { type: 'boolean', description: 'Allow file edits. Default false (read-only). Commit first so the diff is reviewable.' },
   thread: { type: 'string', description: 'Thread id to group related calls and reuse sessions. Omit to use this MCP server session thread.' },
+  category: { type: 'string', enum: CATEGORIES, description: 'Your classification of this task (you have read it; tandem\'s keyword rules have not). Picks the model when `model` is omitted and labels the call in the ledger.' },
 };
 
 function tools(expose) {
@@ -166,7 +167,11 @@ async function callToolNow(name, a, expose, _cfg, defaultThread, getClientRoot) 
   const liveCfg = loadConfig();
   if (name === 'route_task') {
     if (typeof a.task !== 'string' || !a.task) return text('task (string) is required', true);
-    return text(JSON.stringify(route(a.task, await currentBudget(liveCfg), { lead: leadFor(expose), pins: liveCfg.routing?.pins }), null, 2));
+    try {
+      return text(JSON.stringify(route(a.task, await currentBudget(liveCfg), { lead: leadFor(expose), pins: liveCfg.routing?.pins, category: a.category }), null, 2));
+    } catch (err) {
+      return text(err.message, true);
+    }
   }
   if (name === 'tandem_stats') {
     sweep(liveCfg);
@@ -184,9 +189,14 @@ async function callToolNow(name, a, expose, _cfg, defaultThread, getClientRoot) 
     return text(err.message, true);
   }
   let model = a.model;
-  let category = null;
+  let category;
+  try {
+    category = checkCategory(a.category);
+  } catch (err) {
+    return text(err.message, true);
+  }
   if (!model) {
-    const pick = route(a.prompt, await currentBudget(liveCfg), { pins: liveCfg.routing?.pins });
+    const pick = route(a.prompt, await currentBudget(liveCfg), { pins: liveCfg.routing?.pins, lead: leadFor(expose), category });
     category = pick.category;
     const fallback = agent === 'gemini' ? liveCfg.defaults.geminiModel : liveCfg.defaults.claudeModel;
     model = pick.agent === agent ? pick.model : fallback;

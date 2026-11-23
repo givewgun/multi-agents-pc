@@ -57,6 +57,17 @@ export const RULES = [
   },
 ];
 
+// 'general' is the no-match fallback, not a rule: it has no regex and no bench task (ADR 0012).
+export const GENERAL = { category: 'general', agent: 'gemini', model: 'neon', reason: 'No rule matched: Gemini Neon is the safe default; escalate to Claude if weak.' };
+export const CATEGORIES = [...RULES.map((r) => r.category), GENERAL.category];
+
+/** Throws on anything outside CATEGORIES, so a typo or a made-up category never routes silently. */
+export function checkCategory(c) {
+  if (c == null || c === '') return null;
+  if (!CATEGORIES.includes(c)) throw new Error(`Unknown category "${c}" (use one of: ${CATEGORIES.join(', ')})`);
+  return c;
+}
+
 const OTHER = { claude: 'gemini', gemini: 'claude' };
 const PARTNER_MODEL = { claude: 'sonnet', gemini: 'neon' };
 
@@ -68,15 +79,17 @@ export function parsePin(s) {
 }
 
 /**
+ * Classification: the lead's `category` (it is an LLM and has read the task) > keyword rules.
  * Order of precedence: user pin > budget > rules. Then lead logic:
  *  - partnerRequired categories (review, second opinion) never go to the lead itself;
  *  - otherwise, if the best agent IS the lead, `self: true` = do it yourself, no call.
  * @param {string} task
  * @param {object} [budget] planBudget(...) — plan-window usage per agent
- * @param {{lead?: 'claude'|'gemini', pins?: Record<string,string>}} [opts]
+ * @param {{lead?: 'claude'|'gemini', pins?: Record<string,string>, category?: string}} [opts]
  */
-export function route(task, budget = null, { lead = null, pins = {} } = {}) {
-  const pick = rulePick(task);
+export function route(task, budget = null, { lead = null, pins = {}, category = null } = {}) {
+  const given = checkCategory(category);
+  const pick = given ? categoryPick(given) : rulePick(String(task ?? ''));
   const pin = pins && Object.hasOwn(pins, pick.category) ? parsePin(pins[pick.category]) : null;
   if (pin) {
     Object.assign(pick, pin, { pinned: true, reason: `Pinned by you: ${pick.category} → ${pin.agent}:${pin.model}.` });
@@ -97,6 +110,14 @@ export function route(task, budget = null, { lead = null, pins = {} } = {}) {
   return pick;
 }
 
+function categoryPick(category) {
+  const rule = RULES.find((r) => r.category === category) || GENERAL;
+  return {
+    category, agent: rule.agent, model: rule.model, reason: rule.reason,
+    confidence: 1, source: 'lead', needsJudgment: false, alternatives: [], notes: [],
+  };
+}
+
 function rulePick(task) {
   const scores = new Map();
   for (const rule of RULES) {
@@ -104,6 +125,7 @@ function rulePick(task) {
     if (hits) scores.set(rule, (scores.get(rule) || 0) + rule.weight * hits.length);
   }
   const ranked = [...scores.entries()].sort((a, b) => b[1] - a[1]);
+  const notes = [];
   let pick;
   if (ranked.length) {
     const [rule, score] = ranked[0];
@@ -112,13 +134,19 @@ function rulePick(task) {
       category: rule.category, agent: rule.agent, model: rule.model, reason: rule.reason,
       confidence: Math.min(0.95, 0.5 + (score - runnerUp) * 0.15),
     };
-  } else if (task.length < 160) {
-    pick = { category: 'trivial', agent: 'gemini', model: 'flash-low', reason: 'Short, unclassified: fastest model.', confidence: 0.4 };
+    // Close scores = the task asks for several kinds of work; one model for all of it is a guess.
+    if (runnerUp > 0 && runnerUp / score >= 0.5) {
+      notes.push(`Several kinds of work (${ranked.slice(0, 3).map(([r]) => r.category).join(', ')}): split into subtasks and route each.`);
+    }
   } else {
-    pick = { category: 'general', agent: 'gemini', model: 'neon', reason: 'Unclassified: Gemini first, escalate to Claude if weak.', confidence: 0.3 };
+    // No keyword hit says nothing about difficulty: a short prompt can be a hard, niche task.
+    pick = { ...GENERAL, confidence: 0.3 };
+    notes.push('No rule matched: the lead should classify this (pass a category), or split it into subtasks.');
   }
+  pick.source = 'rules';
+  pick.needsJudgment = pick.confidence <= 0.5 || notes.length > 0;
   pick.alternatives = ranked.slice(1, 3).map(([r]) => ({ category: r.category, agent: r.agent, model: r.model }));
-  pick.notes = [];
+  pick.notes = notes;
   return pick;
 }
 
