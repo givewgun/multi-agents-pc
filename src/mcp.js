@@ -114,8 +114,15 @@ function tools(expose) {
   list.push(
     {
       name: 'route_task',
-      description: 'Recommend which agent (claude/gemini) and model should do a task, using tandem\'s cost-aware rules and current budget. Spends no tokens.',
-      inputSchema: { type: 'object', properties: { task: { type: 'string' } }, required: ['task'] },
+      description: 'Apply tandem\'s policy (user pins, plan budgets, no self-review, do-it-yourself) to a task and get agent + model. Spends no tokens. You decide what the task is: pass `category`. Without it tandem falls back to keyword rules, which miss niche or multi-part tasks (`needsJudgment: true`). Split multi-part work and route each part.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          task: { type: 'string', description: 'The task, in a sentence.' },
+          category: { type: 'string', enum: CATEGORIES, description: 'Your classification. architecture/hard-debug: deciding. research: fresh web facts or niche domains. bulk-read: lots of input. boilerplate/ui/feature: typing. review/second-opinion: always the partner. trivial: short and easy. general: none fit.' },
+        },
+        required: ['task'],
+      },
     },
     {
       name: 'tandem_stats',

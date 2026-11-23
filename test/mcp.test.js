@@ -80,6 +80,21 @@ describe('mcp server', () => {
       const routed = JSON.parse(callRes.result.content[0].text);
       assert.equal(routed.agent, 'gemini');
 
+      // The lead's category is advertised as an enum and wins over keyword rules.
+      for (const n of ['route_task', 'ask_gemini']) {
+        const t = listRes.result.tools.find((x) => x.name === n);
+        assert.ok(t.inputSchema.properties.category.enum.includes('research'), `${n} advertises category`);
+      }
+      const leadRes = await request(5, 'tools/call', {
+        name: 'route_task',
+        arguments: { task: 'need to mod skyrim and modify papyrus script of enb', category: 'research' },
+      });
+      const leadPick = JSON.parse(leadRes.result.content[0].text);
+      assert.equal(leadPick.source, 'lead');
+      assert.equal(leadPick.category, 'research');
+      const badRes = await request(6, 'tools/call', { name: 'route_task', arguments: { task: 'x', category: 'bogus' } });
+      assert.equal(badRes.result.isError, true);
+
       const errRes = await request(4, 'unknown/method');
       assert.equal(errRes.error.code, -32601);
     } finally {
