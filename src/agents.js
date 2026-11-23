@@ -1,5 +1,6 @@
 import path from 'node:path';
 import os from 'node:os';
+import { readFileSync } from 'node:fs';
 import { which, run, isShim } from './proc.js';
 import { resolveGeminiModel, resolveClaudeModel } from './config.js';
 import { parseClaudeRateLimit } from './usage.js';
@@ -86,13 +87,35 @@ function result(agent, model, fields) {
 
 // A single denied action makes headless agy end its turn with an empty answer (seen 3× while
 // building v0.2). Say so up front, and retry once in the same conversation if it still happens.
-export const headlessNote = (edit) => `[tandem] Headless run: shell commands are unavailable (except read-only git: status, diff, log, show, blame, ls-files). ${edit ? 'Use your file read/edit tools.' : 'This run is read-only: use file read/search tools; edits will be denied.'} If an action is denied, continue without it; never end your turn with an empty answer.\n\n`;
+export const headlessNote = (edit, allow = []) => {
+  // Commands granted for this call (e.g. command(node --test)) must be advertised, or agy never tries them.
+  const extra = allow.map((r) => /^command\((.+)\)$/.exec(r)?.[1]).filter(Boolean);
+  const also = extra.length ? `; also allowed for this run: ${extra.map((x) => `\`${x}\``).join(', ')}` : '';
+  return `[tandem] Headless run: shell commands are unavailable (except read-only git: status, diff, log, show, blame, ls-files${also}). ${edit ? 'Use your file read/edit tools.' : 'This run is read-only: use file read/search tools; edits will be denied.'} If an action is denied, continue without it; never end your turn with an empty answer.
+
+`;
+};
+
+/**
+ * agy's --settings replaces the user's permissions instead of adding to them, so per-call grants
+ * must carry the user's own allow/deny rules along (else e.g. their read-only git rules vanish).
+ */
+export function mergeGeminiPermissions(allow, user = {}) {
+  const p = user.permissions || {};
+  const out = { allow: [...new Set([...(p.allow || []), ...allow])] };
+  if (p.deny?.length) out.deny = p.deny;
+  return { permissions: out };
+}
+
+function readAgySettings() {
+  try { return JSON.parse(readFileSync(path.join(os.homedir(), '.gemini', 'antigravity-cli', 'settings.json'), 'utf8')); } catch { return {}; }
+}
 
 const sumUsage = (a, b) => Object.fromEntries(Object.keys(a).map((k) => [k, (a[k] || 0) + (b[k] || 0)]));
 
 /** Gemini via Antigravity CLI headless mode. No --mode = edits and shell commands soft-denied. */
 export async function askGemini(opts, cfg) {
-  const note = headlessNote(!!opts.edit);
+  const note = headlessNote(!!opts.edit, opts.allow);
   const first = await askGeminiOnce({ ...opts, prompt: note + opts.prompt }, cfg);
   if (first.status !== 'denied' || first.text || !first.sessionId || opts.noRetry) return first;
   const retry = await askGeminiOnce({
@@ -136,7 +159,7 @@ async function askGeminiOnce(opts, cfg) {
   if (conversation) args.push('--conversation', conversation);
   // Per-call grants, never saved: extra readable dirs and permission rules (e.g. read_url(example.com)).
   for (const d of opts.addDirs || []) args.push('--add-dir', d);
-  if (opts.allow?.length) args.push('--settings', JSON.stringify({ permissions: { allow: opts.allow } }));
+  if (opts.allow?.length) args.push('--settings', JSON.stringify(mergeGeminiPermissions(opts.allow, readAgySettings())));
 
   const t0 = Date.now();
   const input = stream ? JSON.stringify({ event: 'user', message: { content: prompt } }) + '\n' : undefined;

@@ -41,3 +41,16 @@ test('analyzeAgentic totals Claude spend and partner calls', () => {
   assert.equal(r.perTask[0].cells['claude-lead'], '5/5 (2↗)');
   assert.equal(r.perTask[0].cells['claude-solo'], '3/5');
 });
+
+test('headlessNote advertises per-call command grants', async () => {
+  const { headlessNote } = await import('../src/agents.js');
+  assert.match(headlessNote(true, ['command(node --test)', 'mcp(a/b)']), /also allowed for this run: `node --test`\)/);
+  assert.doesNotMatch(headlessNote(true), /also allowed/);
+});
+
+test('mergeGeminiPermissions keeps the user allow/deny rules', async () => {
+  const { mergeGeminiPermissions } = await import('../src/agents.js');
+  const m = mergeGeminiPermissions(['command(node --test)', 'command(git diff)'], { permissions: { allow: ['command(git diff)'], deny: ['command(rm)'] } });
+  assert.deepEqual(m, { permissions: { allow: ['command(git diff)', 'command(node --test)'], deny: ['command(rm)'] } });
+  assert.deepEqual(mergeGeminiPermissions(['x'], {}), { permissions: { allow: ['x'] } });
+});
