@@ -15,10 +15,20 @@ Two subscriptions, one team. Main rule: **Claude thinks, Gemini lifts.** Claude'
 | **Gemini app** (gemini.google.com) | Chat, Deep Research, Canvas, image/video | Long research reports, quick questions, media |
 | **NotebookLM** | Q&A over your uploaded docs | Studying course/MOOC material, PDFs, specs |
 
-**Gemini models on AI Pro:** Gemini 4 Neon / Argon / Hydrogen, Orchestrator, Gemini 3.8 Flash. Run `agy models` to see exact slugs.
-**Not on AI Pro:** Gemini 4 Carbon (Ultra only). Claude Sonnet/Opus 5.5 inside Antigravity are paid add-ons. **Don't pick Claude models inside Antigravity.** You already have Claude here. Claude 4.6 / GPT-OSS trials there are removed 30 Nov 2026.
+### Gemini model picker (AI Pro)
 
-Quota check: `/usage` inside `agy`. Gemini models share one 5h + weekly pool.
+| Model (agy slug) | Use for |
+|---|---|
+| `gemini-3.8-flash-low` / `-medium` | Trivial: lookups, summaries, formatting, commit msgs |
+| `gemini-4-hydrogen-medium` | Everyday coding: boilerplate, unit tests, package upgrades, dedup, scaffolding |
+| `gemini-pro-orchestrator-neon` | **Default for real dev work** in Antigravity: features, bug fixes, refactors, multi-file debugging. Neon plans + reviews, Hydrogen executes. Google says faster and fewer tokens than Neon alone |
+| `gemini-4-neon-medium` / `-high` / `-xhigh` | Hardest reasoning: system design, second opinions, reviews. agy default. 512K context |
+| `gemini-4-argon-*` | Alternative top-tier reasoner. Try when Neon's answer is weak |
+
+Suffix = thinking level. Start at `medium`; go `high`/`xhigh` only when stuck.
+**Not on AI Pro:** Gemini 4 Carbon (Ultra only). `claude-*` slugs in agy are a paid add-on. **Don't pick Claude models inside Antigravity.** You already have Claude here. GPT-OSS trial there ends 30 Nov 2026.
+
+Quota check: `/usage` inside `agy`. All Gemini models share one 5h + weekly pool. Google publishes no per-model weighting. Usage tracks "amount of work", so smaller/faster models and tight prompts stretch it.
 
 ---
 
@@ -36,9 +46,10 @@ Quota check: `/usage` inside `agy`. Gemini models share one 5h + weekly pool.
 | UI build + click-through testing in a browser | **Gemini** | Antigravity app (browser agent, screenshots) |
 | Code review before merge | **Both** | Gemini first pass (cheap), Claude final pass |
 | Second opinion on a plan | **Gemini** | `/gemini` "critique this plan" |
-| Recurring jobs (daily digest, PR check) | **Gemini** | Antigravity Automations (cron sidecars) — uses Gemini quota, not Claude |
+| Recurring jobs (daily digest, PR check, nightly test sweep) | **Gemini** | Antigravity scheduled automations (ask the agent "/automation"). Uses Gemini quota, not Claude |
 | Study / learn from course material | **NotebookLM + Gemini** | Upload PDFs/slides, ask questions |
-| Images, diagrams, slides, video | **Gemini app** | Image/video generation |
+| UI mockups, icons, app images | **Gemini** | Antigravity image-generator subagent (inside the project) |
+| Slides, video, one-off images | **Gemini app** | Image/video generation |
 | Writing docs, READMEs, commit msgs | **Gemini Flash** draft → Claude edit if it matters | |
 
 When unsure: **if it's mostly reading or typing, Gemini. If it's mostly deciding, Claude.**
@@ -71,12 +82,18 @@ Claude debugs systematically. After 2 failed attempts: `/gemini` "Here is the sy
 ### F. Parallel sprint
 Antigravity app runs several Gemini agents on independent tasks (tests for module A, docs for B, refactor C). Claude reviews each result. Rule: one agent per set of files.
 
+### G. UI loop
+Gemini in Antigravity: generate mockup/assets (image-generator) → build UI → click through with the browser agent, screenshots → commit. Claude reviews logic, state, and edge cases in the diff.
+
+### H. Night shift (free Claude time)
+Scheduled Antigravity automation runs tests/lint/dependency checks nightly on Gemini quota. It writes a <300-word report to `handoffs/inbox/`. Next morning: "Claude, process the inbox."
+
 ---
 
 ## 4. Cost rules
 
 1. **Gemini first for volume.** Reading >10 files, generating >200 lines, or web lookups → Gemini.
-2. **Flash before Pro.** Gemini 3.8 Flash for mechanical work. Pro-tier Gemini 4 only for reasoning.
+2. **Small model first.** Flash → Hydrogen → Orchestrator → Neon. Climb only when the cheaper one fails.
 3. **Sonnet before Opus** for Claude, unless the task is genuinely hard.
 4. **Self-contained handoffs.** A vague handoff costs a retry on both sides. Use the template.
 5. **Summaries, not dumps.** Ask Gemini for "<300 words" so Claude's context stays small.
@@ -98,10 +115,10 @@ New project? Copy `AGENTS.md`, `CLAUDE.md`, `scripts/`, `handoffs/TEMPLATE.md`, 
 ## 6. Cheatsheet
 
 ```powershell
-# Claude -> Gemini (read-only)
-.\scripts\ask-gemini.ps1 -Prompt "Summarize the auth flow in src/ in 10 bullets"
-# Claude -> Gemini (may edit, cheap model)
-.\scripts\ask-gemini.ps1 -PromptFile handoffs\inbox\2026-11-23-tests.md -Edit -Model <flash-slug>
+# Claude -> Gemini (read-only: edits + shell commands auto-denied)
+.\scripts\ask-gemini.ps1 -Prompt "Summarize the auth flow in src/ in 10 bullets" -Model gemini-3.8-flash-medium
+# Claude -> Gemini (may edit, everyday coder)
+.\scripts\ask-gemini.ps1 -PromptFile handoffs\inbox\2026-11-23-tests.md -Edit -Model gemini-4-hydrogen-medium
 # follow-up in same Gemini conversation
 .\scripts\ask-gemini.ps1 -Prompt "Also cover edge cases" -Continue <conversation_id>
 

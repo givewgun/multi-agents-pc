@@ -19,14 +19,16 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-[Console]::OutputEncoding = [Text.Encoding]::UTF8
+# Throws when no console is attached (scheduled/background runs).
+try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}
+if (-not (Get-Command claude -ErrorAction SilentlyContinue)) { throw "claude CLI not found on PATH" }
 
 if ($PromptFile) { $Prompt = Get-Content -Raw -Encoding UTF8 $PromptFile }
 if (-not $Prompt) { throw 'Give -Prompt or -PromptFile' }
 
 $logDir = Join-Path $WorkDir 'handoffs\log'
 New-Item -ItemType Directory -Force $logDir | Out-Null
-$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$stamp = "$(Get-Date -Format 'yyyyMMdd-HHmmss')-$PID"
 
 # Same quoting/length workaround as ask-gemini.ps1.
 if ($Prompt.Length -gt 6000 -or $Prompt.Contains('"')) {
@@ -42,11 +44,15 @@ if ($Continue) { $a += @('--resume', $Continue) }
 Push-Location $WorkDir
 try {
     $errFile = Join-Path $logDir "claude-$stamp.stderr.txt"
+    # PS 5.1 turns native stderr lines into terminating errors under 'Stop'.
+    $ErrorActionPreference = 'Continue'
     $raw = & claude @a 2> $errFile | Out-String
+    $ErrorActionPreference = 'Stop'
 } finally { Pop-Location }
 
 Set-Content -Path (Join-Path $logDir "claude-$stamp.json") -Value $raw -Encoding UTF8
 
+if (-not $raw.Trim()) { Write-Error "claude produced no output; stderr in $errFile"; exit 1 }
 try { $r = $raw | ConvertFrom-Json } catch {
     Write-Output $raw
     Write-Error "claude returned non-JSON output; stderr in $errFile"

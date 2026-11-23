@@ -20,6 +20,6 @@ Both agents read this file. Claude Code via `CLAUDE.md` (imports this file); Ant
 
 - Never both edit the same file at the same time. One writer per file set.
 - Use git. Commit before handing edit work to the other agent, so the diff is reviewable.
-- Default delegated mode is **read-only** (plan). Grant edits explicitly.
+- Default delegated mode is **read-only**. Grant edits explicitly (`-Edit`).
 - No secrets in prompts, handoff files, or logs. `handoffs/log/` is gitignored but still treat it as shareable.
 - Cheap model first: Flash for bulk/mechanical, Pro/Opus only for hard reasoning.
