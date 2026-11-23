@@ -84,7 +84,7 @@ function tools(expose) {
   if (expose === 'gemini' || expose === 'both') {
     list.push({
       name: 'ask_gemini',
-      description: 'Delegate to Gemini (Google Antigravity) to save Claude usage: reading many files, codebase summaries, web research with Google Search, boilerplate/tests, first-pass review, second opinions. Returns Gemini\'s answer.',
+      description: 'Delegate to Gemini (Google Antigravity) to save Claude usage: reading many files, codebase summaries, web research with Google Search, boilerplate/tests, first-pass review, second opinions. Call only when the user asks or says "use tandem freely", never on your own initiative. Returns Gemini\'s answer.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -99,7 +99,7 @@ function tools(expose) {
   if (expose === 'claude' || expose === 'both') {
     list.push({
       name: 'ask_claude',
-      description: 'Ask Claude (Claude Code) for final code review, hard debugging, or architecture decisions. Uses the user\'s Claude limits: call sparingly, send diffs/summaries instead of file dumps, and batch questions into one call.',
+      description: 'Ask Claude (Claude Code) for final code review, hard debugging, or architecture decisions. Call only when the user asks or says "use tandem freely", never on your own initiative. Uses the user\'s Claude limits: call sparingly, send diffs/summaries instead of file dumps, and batch questions into one call.',
       inputSchema: {
         type: 'object',
         properties: {

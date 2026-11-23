@@ -1,11 +1,11 @@
 ---
 trigger: model_decision
-description: When to ask Claude (tandem ask claude) for review, hard debugging, or architecture help
+description: How to ask Claude (tandem ask claude) for review, hard debugging, or architecture help, once the user asks
 ---
 
 # Asking Claude
 
-You (Gemini) do the bulk work. Ask Claude only when it pays off:
+You (Gemini) do the bulk work. Ask Claude only when the user asks ("ask claude", `/pair`, "use tandem freely"); otherwise offer it. If tandem says "solo mode is on", do it yourself. Once asked, it pays off for:
 
 - Final review of a non-trivial diff: `tandem review --agent claude`
 - A bug you failed to fix after two attempts.

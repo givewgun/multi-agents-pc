@@ -120,7 +120,11 @@ async function cmdSolo(rest, flags, cfg) {
   const [arg] = rest;
   if (arg === 'on' || arg === 'off') {
     const user = readUserConfig();
-    const dur = arg === 'on' && flags.for ? parseDuration(flags.for) : null;
+    const hasFor = arg === 'on' && Object.hasOwn(flags, 'for');
+    // A bad --for must fail loudly: falling back to "no end time" would leave solo on indefinitely.
+    if (hasFor && !flags.for) throw new Error('--for needs a value, e.g. --for 3h');
+    const dur = hasFor ? parseDuration(flags.for) : null;
+    if (dur !== null && !(dur > 0 && dur < 366 * 86_400_000)) throw new Error(`--for needs a positive duration under a year, e.g. 3h (got "${flags.for}")`);
     user.solo = arg === 'on' ? { on: true, until: dur ? new Date(Date.now() + dur).toISOString() : null } : { on: false, until: null };
     saveUserConfig(user);
     cfg = loadConfig();
@@ -206,7 +210,7 @@ async function cmdReview(rest, flags, cfg) {
 async function cmdStats(rest, flags, cfg) {
   (await import('./hooks.js')).sweep(cfg); // pick up token counts agents wrote after their Stop hook
   const s = summarize(readRecords(), cfg, Date.now(), await getUsage(cfg));
-  if (flags.json) return void process.stdout.write(JSON.stringify({ ...s, recent: undefined }, null, 2) + '\n');
+  if (flags.json) return void process.stdout.write(JSON.stringify({ ...s, recent: undefined, solo: soloState(cfg) }, null, 2) + '\n');
   const { claude, gemini } = s.totals;
   console.log(c.bold('Calls'));
   console.log(table([

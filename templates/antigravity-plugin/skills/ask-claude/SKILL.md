@@ -8,6 +8,7 @@ description: >-
 
 # Ask Claude (partner)
 
+0. **Asked?** Only when the user asked (see description); "use tandem freely" covers the rest of that task. "solo mode is on" → do it yourself.
 1. **Worth a Claude call?** Claude's plan window is scarcer (~70k token overhead per headless call).
    - **Call Claude for:** final diff review, plan critique, bugs stuck after 2 attempts, high-stakes architecture decisions.
    - **Do it yourself for:** reading many files, web research, boilerplate, tests, UI. Classify the task yourself and check `route_task` with that `category` (`self: true` → do it yourself).

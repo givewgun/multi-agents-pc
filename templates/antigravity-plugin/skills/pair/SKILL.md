@@ -10,6 +10,8 @@ description: >-
 
 Pick the pattern, keep Claude calls few and small (Claude's plan is scarcer: send diffs/summaries, never file dumps; batch questions), and pass `cwd: "<active workspace path>"` plus one `thread: "<short-slug>"` on every `ask_claude` call.
 
+**Asked?** Only when the user asked (see description); "use tandem freely" covers the rest of that task. A call that returns "solo mode is on" → stop and do it yourself.
+
 **First, decompose.** You decide what to delegate: split the task into parts, classify each yourself (`research`, `bulk-read`, `boilerplate`, `feature`, `ui`, `architecture`, `hard-debug`, `review`…) and pass that as `category` to `route_task` / `ask_claude`. tandem then applies pins, budgets and the no-self-review rule; it does not understand the task.
 
 1. **plan-critique** (non-trivial plans): draft the plan → `ask_claude` model `sonnet` (`opus` only if genuinely hard) "critique as an equal partner: top risks with fixes, what's missing, ≤300 words" → merge, and tell the user what changed and why.

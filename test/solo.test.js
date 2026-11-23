@@ -50,6 +50,24 @@ describe('tandem solo (CLI + MCP)', () => {
     assert.notEqual(cli('solo', 'bogus').status, 0);
   });
 
+  it('rejects --for values that would leave solo on forever, and leaves config unchanged', () => {
+    for (const args of [['--for', '0'], ['--for=0s'], ['--for'], ['--for', 'abc'], ['--for', '9999h']]) {
+      const r = cli('solo', 'on', ...args);
+      assert.notEqual(r.status, 0, args.join(' '));
+      assert.match(r.stderr, /--for needs|Bad duration/, args.join(' '));
+    }
+    assert.equal(JSON.parse(cli('solo', '--json').stdout).on, false);
+  });
+
+  it('stats --json reports solo', () => {
+    assert.equal(cli('solo', 'on', '--for', '1h').status, 0);
+    try {
+      assert.equal(JSON.parse(cli('stats', '--json').stdout).solo.on, true);
+    } finally {
+      cli('solo', 'off');
+    }
+  });
+
   it('MCP ask_gemini returns an error while solo is on; tandem_stats reports it', async () => {
     assert.equal(cli('solo', 'on').status, 0);
     const child = spawn(process.execPath, [BIN, 'mcp', '--expose', 'gemini'], { env });
