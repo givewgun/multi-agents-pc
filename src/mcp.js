@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync, statSyn
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { callAndLog, currentBudget } from './cli.js';
-import { tandemHome, loadConfig, soloBlock, soloState } from './config.js';
+import { tandemHome, loadConfig, soloBlock, modeState } from './config.js';
 import { shellDeniedHint } from './agents.js';
 import { sweep } from './hooks.js';
 import { getUsage } from './usage.js';
@@ -183,7 +183,7 @@ async function callToolNow(name, a, expose, _cfg, defaultThread, getClientRoot) 
   if (name === 'tandem_stats') {
     sweep(liveCfg);
     const s = summarize(readRecords(), liveCfg, Date.now(), await getUsage(liveCfg));
-    return text(JSON.stringify({ totals: s.totals, savings: s.savings, budget: s.budget, solo: soloState(liveCfg) }, null, 2));
+    return text(JSON.stringify({ totals: s.totals, savings: s.savings, budget: s.budget, mode: modeState(liveCfg) }, null, 2));
   }
   const agent = name === 'ask_gemini' ? 'gemini' : name === 'ask_claude' ? 'claude' : null;
   if (!agent || !tools(expose).some((t) => t.name === name)) return text(`Unknown tool ${name}`, true);

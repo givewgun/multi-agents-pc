@@ -56,8 +56,10 @@ export const DEFAULT_CONFIG = {
   // Commands headless agents may run on --edit calls, e.g. "npm test;node --test". Opt-in: tests run
   // repo code the agent may have just written, so only grant this for repos you trust.
   allowCommands: [],
-  // `tandem solo on [--for 5h]`: block every agent-to-agent call until turned off or expired.
-  solo: { on: false, until: null },
+  // `tandem mode ask|free|solo [--for 5h]`. ask: delegate only when the user asks (default).
+  // free: the user pre-approved delegation on every turn. solo: block every agent-to-agent call.
+  // An expired `until` falls back to ask.
+  mode: { value: 'ask', until: null },
   paths: { agy: null, claude: null },
 };
 
@@ -109,19 +111,37 @@ export function setConfigValue(key, raw) {
   return value;
 }
 
-/** Solo mode: {on, until}; an expired `until` counts as off. */
-export function soloState(cfg, now = Date.now()) {
-  const s = cfg?.solo || {};
-  const until = s.until ? Date.parse(s.until) : null;
-  const on = !!s.on && (until == null || Number.isNaN(until) || until > now);
-  return { on, until: on && until != null && !Number.isNaN(until) ? new Date(until).toISOString() : null };
+export const MODES = ['ask', 'free', 'solo'];
+
+/** Delegation mode now: {mode, until}. Unknown or expired → ask. */
+export function modeState(cfg, now = Date.now()) {
+  const m = cfg?.mode || {};
+  const mode = MODES.includes(m.value) ? m.value : 'ask';
+  const until = m.until ? Date.parse(m.until) : null;
+  const timed = until != null && !Number.isNaN(until);
+  if (mode === 'ask' || (timed && until <= now)) return { mode: 'ask', until: null };
+  return { mode, until: timed ? new Date(until).toISOString() : null };
 }
 
 /** Error text when solo mode blocks a delegated call, else null. */
 export function soloBlock(cfg, now = Date.now()) {
-  const s = soloState(cfg, now);
-  if (!s.on) return null;
-  return `solo mode is on${s.until ? ` until ${s.until}` : ''}: the user wants a single agent, so no calls to the other agent. Do the work yourself. (User: \`tandem solo off\` to re-enable.)`;
+  const s = modeState(cfg, now);
+  if (s.mode !== 'solo') return null;
+  return `solo mode is on${s.until ? ` until ${s.until}` : ''}: the user wants a single agent, so no calls to the other agent. Do the work yourself. (User: \`tandem mode ask\` to re-enable.)`;
+}
+
+/** Text injected into the lead's context on every user turn (per-prompt hooks), or null in ask mode. */
+export function modeContext(cfg, lead, now = Date.now()) {
+  const s = modeState(cfg, now);
+  const until = s.until ? ` until ${s.until}` : '';
+  const partner = lead === 'gemini' ? 'Claude' : 'Gemini';
+  if (s.mode === 'free') {
+    return `tandem mode: free${until}. The user pre-approved delegation for every task, as if they said "use tandem freely": ` +
+      `decompose the task, classify each part, call route_task with your category, delegate to ${partner} where it is the better or cheaper fit, ` +
+      'verify the results, and tell the user what each agent did. Small or context-heavy work: just do it yourself.';
+  }
+  if (s.mode === 'solo') return `tandem mode: solo${until}. The user wants you alone: do not call ${partner}, even if a skill suggests it.`;
+  return null;
 }
 
 export function resolveGeminiModel(m) { return m ? (GEMINI_ALIASES[m] || m) : null; }

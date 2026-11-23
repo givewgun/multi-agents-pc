@@ -2,7 +2,7 @@ import http from 'node:http';
 import { readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { readRecords, summarize, planBudget } from '../ledger.js';
-import { loadConfig, soloState } from '../config.js';
+import { loadConfig, modeState } from '../config.js';
 import { getUsage } from '../usage.js';
 import { readTranscript } from '../transcripts.js';
 import { sweep } from '../hooks.js';
@@ -159,7 +159,7 @@ function createHandler(cfg) {
         const usage = await getUsage(liveCfg);
         const summary = summarize(shown, liveCfg, Date.now(), usage);
         summary.budget = planBudget(usage, liveCfg, all);
-        summary.solo = soloState(liveCfg);
+        summary.mode = modeState(liveCfg);
         sendJson(res, 200, summary);
         return;
       }

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { loadConfig, soloBlock, soloState, setConfigValue, configPath, readUserConfig, saveUserConfig, GEMINI_ALIASES, CLAUDE_ALIASES, resolveGeminiModel, resolveClaudeModel } from './config.js';
+import { loadConfig, soloBlock, modeState, MODES, setConfigValue, configPath, readUserConfig, saveUserConfig, GEMINI_ALIASES, CLAUDE_ALIASES, resolveGeminiModel, resolveClaudeModel } from './config.js';
 import { ask, findAgy, shellDeniedHint } from './agents.js';
 import { run as spawnRun } from './proc.js';
 import { makeRecord, appendRecord, readRecords, summarize, ledgerPath, planBudget } from './ledger.js';
@@ -116,26 +116,48 @@ function assertNotSolo(cfg) {
   if (msg) throw new Error(msg);
 }
 
+function writeMode(value, flags) {
+  const hasFor = value !== 'ask' && Object.hasOwn(flags, 'for');
+  // A bad --for must fail loudly: falling back to "no end time" would leave the mode on indefinitely.
+  if (hasFor && !flags.for) throw new Error('--for needs a value, e.g. --for 3h');
+  const dur = hasFor ? parseDuration(flags.for) : null;
+  if (dur !== null && !(dur > 0 && dur < 366 * 86_400_000)) throw new Error(`--for needs a positive duration under a year, e.g. 3h (got "${flags.for}")`);
+  const user = readUserConfig();
+  delete user.solo; // pre-release key
+  user.mode = { value, until: dur ? new Date(Date.now() + dur).toISOString() : null };
+  saveUserConfig(user);
+  return loadConfig();
+}
+
+const MODE_TEXT = {
+  ask: 'agents work alone and delegate only when you ask (/gemini, /pair, "ask claude", "use tandem freely").',
+  free: 'the lead delegates by its own judgment on every turn, as if each prompt said "use tandem freely".',
+  solo: 'agents work alone; every call between them is blocked.',
+};
+
+function printMode(cfg, flags) {
+  const s = modeState(cfg);
+  if (flags.json) return void process.stdout.write(JSON.stringify(s, null, 2) + '\n');
+  const color = s.mode === 'free' ? c.cyan : s.mode === 'solo' ? c.yellow : c.green;
+  console.log(`${color(`mode ${s.mode}`)}${s.until ? ` until ${s.until}` : ''}: ${MODE_TEXT[s.mode]}`);
+}
+
+async function cmdMode(rest, flags, cfg) {
+  const [arg] = rest;
+  if (arg !== undefined) {
+    if (!MODES.includes(arg)) throw new Error('Usage: tandem mode [ask|free|solo] [--for 5h]');
+    cfg = writeMode(arg, flags);
+  }
+  printMode(cfg, flags);
+}
+
+/** `tandem solo on|off`: shorthand for `tandem mode solo|ask` (off only ends solo, never free). */
 async function cmdSolo(rest, flags, cfg) {
   const [arg] = rest;
-  if (arg === 'on' || arg === 'off') {
-    const user = readUserConfig();
-    const hasFor = arg === 'on' && Object.hasOwn(flags, 'for');
-    // A bad --for must fail loudly: falling back to "no end time" would leave solo on indefinitely.
-    if (hasFor && !flags.for) throw new Error('--for needs a value, e.g. --for 3h');
-    const dur = hasFor ? parseDuration(flags.for) : null;
-    if (dur !== null && !(dur > 0 && dur < 366 * 86_400_000)) throw new Error(`--for needs a positive duration under a year, e.g. 3h (got "${flags.for}")`);
-    user.solo = arg === 'on' ? { on: true, until: dur ? new Date(Date.now() + dur).toISOString() : null } : { on: false, until: null };
-    saveUserConfig(user);
-    cfg = loadConfig();
-  } else if (arg !== undefined) {
-    throw new Error('Usage: tandem solo [on [--for 5h]|off]');
-  }
-  const s = soloState(cfg);
-  if (flags.json) return void process.stdout.write(JSON.stringify(s, null, 2) + '\n');
-  console.log(s.on
-    ? `${c.yellow('solo on')}${s.until ? ` until ${s.until}` : ' (until `tandem solo off`)'}: agents work alone, calls to the other agent are blocked.`
-    : `${c.green('solo off')}: agents delegate when you ask (/gemini, /pair, "ask claude", "use tandem freely").`);
+  if (arg === 'on') cfg = writeMode('solo', flags);
+  else if (arg === 'off') { if (modeState(cfg).mode === 'solo') cfg = writeMode('ask', flags); }
+  else if (arg !== undefined) throw new Error('Usage: tandem solo [on [--for 5h]|off]');
+  printMode(cfg, flags);
 }
 
 async function cmdRoute(rest, flags, cfg) {
@@ -210,7 +232,7 @@ async function cmdReview(rest, flags, cfg) {
 async function cmdStats(rest, flags, cfg) {
   (await import('./hooks.js')).sweep(cfg); // pick up token counts agents wrote after their Stop hook
   const s = summarize(readRecords(), cfg, Date.now(), await getUsage(cfg));
-  if (flags.json) return void process.stdout.write(JSON.stringify({ ...s, recent: undefined, solo: soloState(cfg) }, null, 2) + '\n');
+  if (flags.json) return void process.stdout.write(JSON.stringify({ ...s, recent: undefined, mode: modeState(cfg) }, null, 2) + '\n');
   const { claude, gemini } = s.totals;
   console.log(c.bold('Calls'));
   console.log(table([
@@ -226,8 +248,8 @@ async function cmdStats(rest, flags, cfg) {
   console.log(`  this week: ${c.green(usd(sv.offloadedWeekUsd))} offloaded · Claude spent ${usd(sv.claudeWeekUsd)} · Gemini share ${pct(sv.offloadShareWeek)}`);
   console.log(`  all time:  ${c.green(usd(sv.offloadedAllUsd))} offloaded` + (sv.geminiMonthlyUsd ? ` · Gemini plan ${usd(sv.geminiMonthlyUsd)}/mo` : ''));
   printBudget(s.budget);
-  const solo = soloState(cfg);
-  if (solo.on) console.log('\n' + c.yellow(`solo mode on${solo.until ? ` until ${solo.until}` : ''}: delegation blocked (tandem solo off)`));
+  const m = modeState(cfg);
+  if (m.mode !== 'ask') console.log('\n' + c.yellow(`mode ${m.mode}${m.until ? ` until ${m.until}` : ''}: ${MODE_TEXT[m.mode]} (tandem mode ask to reset)`));
 }
 
 function resetsIn(iso) {
@@ -488,7 +510,8 @@ const HELP = `tandem — Claude Code + Gemini (Antigravity) as one team
   tandem run "task"                     route + call, falls back to the other agent on failure [--thread id] [--lead a] [--category c]
   tandem review [--agent gemini|claude|both] [--staged] [--base ref] [--thread id]   review git diff
   tandem show [last|<id>|thread:<id>]   render an exchange from its native transcript [--max 4000] [--json]
-  tandem solo [on [--for 5h]|off]       single-agent mode: block all calls between agents
+  tandem mode [ask|free|solo] [--for 5h]   delegation: only when asked (default) | every turn | never
+  tandem solo [on [--for 5h]|off]       shorthand for tandem mode solo / ask
   tandem prefer [claude|gemini <model>] view or set default models
   tandem pin [<cat> <agent:model>|--clear]   view, set or clear per-category routing pins
   tandem models [--live]                list aliases → slugs, defaults (★) and pins
@@ -516,11 +539,12 @@ export async function main(argv) {
   if (flags.version || cmd === 'version') return void console.log(VERSION);
   if (!cmd || flags.help || cmd === 'help') return void console.log(HELP);
   // Hooks load config themselves: a broken config file must never fail an agent's Stop hook.
-  if (cmd === 'hook') return (await import('./hooks.js')).runHook(rest[0]);
+  if (cmd === 'hook') return (await import('./hooks.js')).runHook(rest[0], rest[1]);
   const cfg = loadConfig();
   switch (cmd) {
     case 'ask': return cmdAsk(rest, flags, cfg);
     case 'route': return cmdRoute(rest, flags, cfg);
+    case 'mode': return cmdMode(rest, flags, cfg);
     case 'solo': return cmdSolo(rest, flags, cfg);
     case 'run': return cmdRun(rest, flags, cfg);
     case 'review': return cmdReview(rest, flags, cfg);

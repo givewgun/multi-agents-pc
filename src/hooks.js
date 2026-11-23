@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync, openSyn
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { tandemHome, loadConfig, DEFAULT_CONFIG } from './config.js';
+import { tandemHome, loadConfig, DEFAULT_CONFIG, modeContext, modeState } from './config.js';
 import { makeRecord, appendRecord, claudeEquivalentUsd, readRecords } from './ledger.js';
 import { which, isShim } from './proc.js';
 
@@ -174,13 +174,17 @@ export function spawnedByOtherAgent(agent, env = process.env) {
   return false;
 }
 
-/** `tandem hook claude|gemini` — called by each agent's Stop hook with the event JSON on stdin. */
-export async function runHook(agent) {
+/**
+ * `tandem hook <claude|gemini> [prompt]` — called by each agent's hooks with the event JSON on stdin.
+ * No event = Stop (log direct work). `prompt` = per-prompt hook: inject the delegation mode.
+ */
+export async function runHook(agent, event = 'stop') {
+  if (event === 'prompt') return promptHook(agent);
   try {
     if (process.env.TANDEM_MANAGED || spawnedByOtherAgent(agent)) return; // tandem's own or cross-agent CLI runs
     let cfg = DEFAULT_CONFIG;
     try { cfg = loadConfig(); } catch { /* bad config must not break the hook */ }
-    const p = JSON.parse((await readStdin()).replace(/^﻿/, '') || '{}');
+    const p = JSON.parse((await readStdin()).replace(/^\uFEFF/, '') || '{}');
     if (agent === 'claude') reconcile('claude', p.session_id, p.transcript_path, { cwd: p.cwd, cfg, touch: true });
     else if (agent === 'gemini') reconcile('gemini', p.conversationId, p.transcriptPath, { cwd: p.cwd || p.workspacePaths?.[0], cfg, modelHint: p.modelName, touch: true });
   } catch { /* never break the agent */ } finally {
@@ -189,25 +193,82 @@ export async function runHook(agent) {
   }
 }
 
+export const MODE_RESET = 'tandem mode: ask. Earlier tandem mode notes no longer apply: delegate only when the user asks.';
+
+/**
+ * What the per-prompt hook injects now, given the key it injected last in this session (pure).
+ * Claude: every prompt while free/solo (additionalContext is per turn and compaction can drop it).
+ * Gemini: only on change, because PreInvocation fires before *every* model call and its
+ * systemMessage persists in the conversation. Both get one reset note when the mode returns to ask.
+ */
+export function modeInjection(agent, cfg, last, now = Date.now()) {
+  const { mode, until } = modeState(cfg, now);
+  const key = `${mode}|${until || ''}`;
+  if (mode === 'ask') return { key, text: last && last !== key ? MODE_RESET : null };
+  return { key, text: agent === 'claude' || last !== key ? modeContext(cfg, agent, now) : null };
+}
+
+/** Hook stdout that adds `text` to the lead's context, in each agent's format. */
+export function promptHookOutput(agent, text) {
+  if (agent === 'gemini') return JSON.stringify(text ? { injectSteps: [{ systemMessage: { systemMessage: text } }] } : {}) + '\n';
+  return text ? JSON.stringify({ hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: text } }) + '\n' : '';
+}
+
+const modeStatePath = () => path.join(tandemHome(), 'mode-state.json');
+
+async function promptHook(agent) {
+  let text = null;
+  try {
+    // Partners spawned by tandem must not see free mode, or they would delegate straight back.
+    if (process.env.TANDEM_MANAGED || spawnedByOtherAgent(agent)) return;
+    const p = JSON.parse((await readStdin()).replace(/^﻿/, '') || '{}');
+    const session = `${agent}:${(agent === 'claude' ? p.session_id : p.conversationId) || 'unknown'}`;
+    let state = {};
+    try { state = JSON.parse(readFileSync(modeStatePath(), 'utf8')); } catch { /* first run */ }
+    if (!isObj(state)) state = {};
+    const inj = modeInjection(agent, loadConfig(), state[session]);
+    text = inj.text;
+    if (state[session] !== inj.key) {
+      delete state[session]; // re-insert last, so pruning drops the oldest sessions
+      state[session] = inj.key;
+      const keys = Object.keys(state);
+      for (const k of keys.slice(0, Math.max(0, keys.length - 200))) delete state[k];
+      mkdirSync(tandemHome(), { recursive: true });
+      writeJsonAtomic(modeStatePath(), state);
+    }
+  } catch { /* never break the agent */ } finally {
+    process.stdout.write(promptHookOutput(agent, text));
+  }
+}
+
 /**
  * Command an agent's hook runner executes. At most one quoted path: Windows `cmd /c` strips the
  * outer quotes of a command that starts with a quote and holds more than two of them.
  */
-export function hookCommand(agent) {
-  const global = which('tandem');
-  if (global && !isShim(global)) return `tandem hook ${agent}`;
-  const fwd = (p) => p.replace(/\\/g, '/');
-  if (which('node')) return `node "${fwd(BIN)}" hook ${agent}`;
-  return `"${fwd(process.execPath)}" "${fwd(BIN)}" hook ${agent}`;
+export function hookCommand(agent, event = null) {
+  return `${tandemCommand()} hook ${agent}${event ? ` ${event}` : ''}`;
 }
 
-const TANDEM_HOOK = /tandem(\.js)?"? hook claude/;
+/** How a hook or skill runs tandem: global install if present, else this checkout. */
+export function tandemCommand() {
+  const global = which('tandem');
+  if (global && !isShim(global)) return 'tandem';
+  const fwd = (p) => p.replace(/\\/g, '/');
+  if (which('node')) return `node "${fwd(BIN)}"`;
+  return `"${fwd(process.execPath)}" "${fwd(BIN)}"`;
+}
 
-/** Add or update tandem's Stop hook in ~/.claude/settings.json (idempotent; one-time backup; atomic write). */
+// One tandem hook per Claude event: Stop logs direct work, UserPromptSubmit injects the mode.
+const CLAUDE_HOOKS = [
+  { event: 'Stop', arg: null, re: /tandem(\.js)?"? hook claude$/ },
+  { event: 'UserPromptSubmit', arg: 'prompt', re: /tandem(\.js)?"? hook claude prompt$/ },
+];
+
+/** Add or update tandem's hooks in ~/.claude/settings.json (idempotent; one-time backup; atomic write). */
 export function installClaudeHook(settingsPath = path.join(os.homedir(), '.claude', 'settings.json')) {
   let s = {};
   if (existsSync(settingsPath)) {
-    const text = readFileSync(settingsPath, 'utf8').replace(/^﻿/, '');
+    const text = readFileSync(settingsPath, 'utf8').replace(/^\uFEFF/, '');
     if (text.trim()) s = JSON.parse(text);
     if (!isObj(s)) throw new Error(`${settingsPath} is not a JSON object`);
     const backup = `${settingsPath}.bak-tandem`;
@@ -215,19 +276,22 @@ export function installClaudeHook(settingsPath = path.join(os.homedir(), '.claud
   }
   if (s.hooks === undefined) s.hooks = {};
   if (!isObj(s.hooks)) throw new Error('"hooks" in Claude settings is not an object');
-  if (s.hooks.Stop === undefined) s.hooks.Stop = [];
-  if (!Array.isArray(s.hooks.Stop)) throw new Error('"hooks.Stop" in Claude settings is not an array');
-  const command = hookCommand('claude');
-  for (const g of s.hooks.Stop) {
-    for (const h of Array.isArray(g?.hooks) ? g.hooks : []) {
-      if (!TANDEM_HOOK.test(h?.command || '')) continue;
-      if (h.command === command) return 'present';
-      h.command = command; // repo moved or install method changed
-      writeJsonAtomic(settingsPath, s);
-      return 'updated';
+  const results = [];
+  for (const { event, arg, re } of CLAUDE_HOOKS) {
+    if (s.hooks[event] === undefined) s.hooks[event] = [];
+    if (!Array.isArray(s.hooks[event])) throw new Error(`"hooks.${event}" in Claude settings is not an array`);
+    const command = hookCommand('claude', arg);
+    let found = null;
+    for (const g of s.hooks[event]) {
+      for (const h of Array.isArray(g?.hooks) ? g.hooks : []) {
+        if (!re.test(h?.command || '')) continue;
+        found = h.command === command ? 'present' : 'updated';
+        h.command = command; // repo moved or install method changed
+      }
     }
+    if (!found) s.hooks[event].push({ hooks: [{ type: 'command', command, timeout: 10 }] });
+    results.push(found || 'added');
   }
-  s.hooks.Stop.push({ hooks: [{ type: 'command', command, timeout: 10 }] });
-  writeJsonAtomic(settingsPath, s);
-  return 'added';
+  if (results.some((r) => r !== 'present')) writeJsonAtomic(settingsPath, s);
+  return results.every((r) => r === 'present') ? 'present' : results.includes('added') ? 'added' : 'updated';
 }

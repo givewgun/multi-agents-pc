@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { which, isShim, run } from './proc.js';
 import { findClaude } from './agents.js';
 import { loadConfig } from './config.js';
-import { hookCommand, installClaudeHook } from './hooks.js';
+import { hookCommand, tandemCommand, installClaudeHook } from './hooks.js';
 
 const TEMPLATES = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'templates');
 const BIN = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'tandem.js');
@@ -45,10 +45,12 @@ function mergeMcp(file, name, entry) {
   return existed ? 'updated' : 'added';
 }
 
-function copyTemplate(src, to, force, label) {
+function copyTemplate(src, to, force, label, vars = null) {
   if (existsSync(to) && !force) return console.log(`skip    ${label} (exists; --force to overwrite)`);
   mkdirSync(path.dirname(to), { recursive: true });
-  writeFileSync(to, readFileSync(path.join(TEMPLATES, src)));
+  let body = readFileSync(path.join(TEMPLATES, src), vars ? 'utf8' : undefined);
+  for (const [k, v] of Object.entries(vars || {})) body = body.split(k).join(v);
+  writeFileSync(to, body);
   console.log(`write   ${label}`);
 }
 
@@ -109,6 +111,8 @@ export async function initGlobal(flags = {}) {
       '{{MCP_COMMAND}}': JSON.stringify(agyMcpCmd.command),
       '{{MCP_ARGS}}': JSON.stringify(agyMcpCmd.args),
       '{{HOOK_COMMAND}}': JSON.stringify(hookCommand('gemini')),
+      '{{PROMPT_HOOK_COMMAND}}': JSON.stringify(hookCommand('gemini', 'prompt')),
+      '{{TANDEM_CMD}}': tandemCommand(),
     });
     pluginInstalled = true;
     console.log(`${pluginExisted ? 'update ' : 'write  '} ~/.gemini/config/plugins/tandem/ (Antigravity plugin)`);
@@ -135,11 +139,12 @@ export async function initGlobal(flags = {}) {
   // Claude Code skills, Stop hook and user-scope MCP server
   copyTemplate('skill-gemini.md', path.join(home, '.claude', 'skills', 'gemini', 'SKILL.md'), flags.force, '~/.claude/skills/gemini/SKILL.md (Claude /gemini skill)');
   copyTemplate('skill-pair.md', path.join(home, '.claude', 'skills', 'pair', 'SKILL.md'), flags.force, '~/.claude/skills/pair/SKILL.md (Claude /pair skill)');
+  copyTemplate('skill-tandem.md', path.join(home, '.claude', 'skills', 'tandem', 'SKILL.md'), flags.force, '~/.claude/skills/tandem/SKILL.md (Claude /tandem mode skill)', { '{{TANDEM_CMD}}': tandemCommand() });
   try {
     const hookRes = installClaudeHook();
     console.log(hookRes === 'present'
-      ? 'skip    ~/.claude/settings.json (Claude Stop hook already present)'
-      : `update  ~/.claude/settings.json (Claude Stop hook ${hookRes})`);
+      ? 'skip    ~/.claude/settings.json (Claude hooks already present)'
+      : `update  ~/.claude/settings.json (Claude Stop + UserPromptSubmit hooks ${hookRes})`);
   } catch (err) {
     console.log(`skip    ~/.claude/settings.json (Claude Stop hook failed: ${err.message})`);
   }

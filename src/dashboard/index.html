@@ -1734,10 +1734,11 @@
   }
 
   function renderBudget(data) {
-    const solo = data.solo || {};
-    const soloEl = $('solo-banner');
-    soloEl.hidden = !solo.on;
-    soloEl.textContent = solo.on ? `Solo mode on${solo.until ? ` until ${new Date(solo.until).toLocaleString()}` : ''}: calls between agents are blocked. Turn off with tandem solo off.` : '';
+    const mode = data.mode || {};
+    const modeEl = $('solo-banner');
+    const modeText = { free: 'Free mode: the lead delegates by its own judgment on every turn.', solo: 'Solo mode: calls between agents are blocked.' }[mode.mode];
+    modeEl.hidden = !modeText;
+    modeEl.textContent = modeText ? `${modeText}${mode.until ? ` Until ${new Date(mode.until).toLocaleString()}.` : ''} Reset with tandem mode ask.` : '';
     const b = data.budget || {};
     const act = data.activity || {};
     const warnAt = b.warnAt ?? 0.7;
