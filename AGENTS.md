@@ -11,6 +11,8 @@ Both agents read this file. This repo builds `tandem` and also uses it on itself
 
 Rule of thumb: **mostly reading or typing → Gemini. Mostly deciding → Claude.**
 
+**Delegation is opt-in**: only on `/gemini`, `/pair`, "ask gemini/claude", or "use tandem freely". `tandem solo on` blocks it entirely.
+
 ## Calling each other (from repo root)
 
 - `node bin/tandem.js ask gemini "..." --model <alias> [--edit]` / `node bin/tandem.js ask claude "..."`

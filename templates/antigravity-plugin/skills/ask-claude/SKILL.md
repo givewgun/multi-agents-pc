@@ -2,8 +2,8 @@
 name: ask-claude
 description: >-
   Call Claude (Claude Code) via tandem MCP for code review, plan critique, hard debugging,
-  architecture decisions, or a second opinion. Use when the user says "ask claude",
-  "second opinion", "review", or when Claude's judgment beats Gemini's.
+  architecture decisions, or a second opinion. Use only when the user asks: "ask claude",
+  "claude review", "second opinion from claude", or "use tandem freely". Never on your own initiative.
 ---
 
 # Ask Claude (partner)

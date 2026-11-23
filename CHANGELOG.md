@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `tandem solo [on [--for 5h]|off]`: single-agent mode. Blocks MCP `ask_gemini`/`ask_claude` and CLI `ask`/`run`/`review` (and `bench --agentic` team setups) until turned off or expired. Shown in `tandem stats`, `tandem_stats` and the dashboard.
+
 ### Changed
+- Delegation is opt-in. Skills and rules on both sides trigger only when the user asks (`/gemini`, `/pair`, "ask gemini/claude", "work with …") or says "use tandem freely" (the lead then decomposes and delegates by its own judgment for that task). Re-run `tandem init --global --force` to update installed skills.
 - Routing: the lead classifies. `route_task`, `ask_gemini`, `ask_claude` take a `category` (MCP enum); CLI `route`/`run`/`ask` take `--category`. The lead has read the task, tandem's regex has not; tandem keeps pins, budgets, no-self-review and `self: true`.
 - No keyword match now routes to `general` → Gemini Neon (was `trivial` → Flash Low for any prompt under 160 chars). Short is not easy: "mod a Skyrim Papyrus script" went to the weakest model.
 - Picks report `source` (`lead`/`rules`) and `needsJudgment` (no match, tie, or mixed intent; mixed intent adds a "split into subtasks" note).

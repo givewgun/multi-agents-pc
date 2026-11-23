@@ -94,14 +94,15 @@ tandem review --agent both                             # dual review of your git
 tandem dashboard --open                                # local UI: work split, budgets, conversations
 ```
 
-Inside **Claude Code**, say *"use gemini for the grunt work"* or `/pair`. Inside **Antigravity**, say *"ask claude to review this diff"* or `/pair`. See [docs/DAILY.md](docs/DAILY.md) for daily habits.
+Delegation is **opt-in**: each agent works alone until you ask. Inside **Claude Code**, say *"ask gemini …"*, `/gemini` or `/pair`. Inside **Antigravity**, say *"ask claude to review this diff"* or `/pair`. In either, *"use tandem freely"* lets the lead split the task and delegate by its own judgment. `tandem solo on [--for 5h]` blocks all calls between agents until `tandem solo off`. See [docs/DAILY.md](docs/DAILY.md) for daily habits.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
 | `tandem ask <gemini\|claude> "prompt"` | One call. `--model`, `--edit`, `--file`, `--continue <id>`, `--thread <id>`, `--json`, `--timeout 15m` |
-| `tandem route "task"` | Agent + model recommendation, budget-aware. Spends no tokens (`--lead claude\|gemini`) |
+| `tandem route "task"` | Agent + model recommendation, budget-aware. Spends no tokens (`--lead claude\|gemini`, `--category <c>`) |
+| `tandem solo [on [--for 5h]\|off]` | Single-agent mode: blocks every call between agents (MCP and CLI) until off or expired |
 | `tandem run "task"` | Route, call, and fall back to the other agent on error/quota |
 | `tandem review [--agent gemini\|claude\|both] [--staged] [--base main]` | Reviews `git diff` (sent in the prompt, so no shell permissions needed) |
 | `tandem show [last\|<id>\|thread:<id>]` | Read an exchange from the agent's own transcript, plus the resume command (`claude --resume`, `agy --conversation`) |
@@ -135,6 +136,9 @@ Inside **Claude Code**, say *"use gemini for the grunt work"* or `/pair`. Inside
 | boilerplate | Gemini Hydrogen | Mechanical generation |
 | feature | Gemini Orchestrator → Claude review | Plan+execute, then judgment |
 | trivial | Gemini Flash Low | Fastest; 100% on short tasks (bench) |
+| general (no match) | Gemini Neon | Fallback; `needsJudgment: true` asks the lead to classify |
+
+The lead (an LLM that has read the task) passes `category` to `route_task` / `--category`; the keyword rules are the fallback for when it doesn't ([ADR 0012](docs/adr/0012-lead-classifies.md)).
 
 Plan overrides: when Claude's 5h or weekly window reaches tandem's limit (default 80% / 85%, leaving headroom for your own Claude Code sessions), Claude routes go to Gemini Neon High. When Gemini's window is full (default 95%), or after a Gemini quota error, Gemini routes go to Claude Sonnet. Window readings past their reset time count as 0.
 

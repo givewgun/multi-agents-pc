@@ -56,6 +56,8 @@ export const DEFAULT_CONFIG = {
   // Commands headless agents may run on --edit calls, e.g. "npm test;node --test". Opt-in: tests run
   // repo code the agent may have just written, so only grant this for repos you trust.
   allowCommands: [],
+  // `tandem solo on [--for 5h]`: block every agent-to-agent call until turned off or expired.
+  solo: { on: false, until: null },
   paths: { agy: null, claude: null },
 };
 
@@ -105,6 +107,21 @@ export function setConfigValue(key, raw) {
   node[parts.at(-1)] = value;
   saveUserConfig(cfg);
   return value;
+}
+
+/** Solo mode: {on, until}; an expired `until` counts as off. */
+export function soloState(cfg, now = Date.now()) {
+  const s = cfg?.solo || {};
+  const until = s.until ? Date.parse(s.until) : null;
+  const on = !!s.on && (until == null || Number.isNaN(until) || until > now);
+  return { on, until: on && until != null && !Number.isNaN(until) ? new Date(until).toISOString() : null };
+}
+
+/** Error text when solo mode blocks a delegated call, else null. */
+export function soloBlock(cfg, now = Date.now()) {
+  const s = soloState(cfg, now);
+  if (!s.on) return null;
+  return `solo mode is on${s.until ? ` until ${s.until}` : ''}: the user wants a single agent, so no calls to the other agent. Do the work yourself. (User: \`tandem solo off\` to re-enable.)`;
 }
 
 export function resolveGeminiModel(m) { return m ? (GEMINI_ALIASES[m] || m) : null; }

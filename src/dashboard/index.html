@@ -229,6 +229,14 @@
     letter-spacing: -0.01em;
   }
 
+  .solo-banner {
+    margin: 0 0 12px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--amber-soft);
+    color: var(--amber);
+    font-size: 13px;
+  }
   .card-note {
     font-size: 12px;
     color: var(--muted);
@@ -1483,6 +1491,7 @@
           <h2 class="card-title">Plan usage</h2>
           <span class="card-note" id="budget-warn-note">Both plans meter a rolling 5-hour and weekly window. Limits: <code>tandem budget set claude-5h 80%</code></span>
         </div>
+        <p class="solo-banner" id="solo-banner" hidden></p>
         <div class="plan-grid" id="budget-list"></div>
       </section>
 
@@ -1725,6 +1734,10 @@
   }
 
   function renderBudget(data) {
+    const solo = data.solo || {};
+    const soloEl = $('solo-banner');
+    soloEl.hidden = !solo.on;
+    soloEl.textContent = solo.on ? `Solo mode on${solo.until ? ` until ${new Date(solo.until).toLocaleString()}` : ''}: calls between agents are blocked. Turn off with tandem solo off.` : '';
     const b = data.budget || {};
     const act = data.activity || {};
     const warnAt = b.warnAt ?? 0.7;

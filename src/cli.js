@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { loadConfig, setConfigValue, configPath, readUserConfig, saveUserConfig, GEMINI_ALIASES, CLAUDE_ALIASES, resolveGeminiModel, resolveClaudeModel } from './config.js';
+import { loadConfig, soloBlock, soloState, setConfigValue, configPath, readUserConfig, saveUserConfig, GEMINI_ALIASES, CLAUDE_ALIASES, resolveGeminiModel, resolveClaudeModel } from './config.js';
 import { ask, findAgy, shellDeniedHint } from './agents.js';
 import { run as spawnRun } from './proc.js';
 import { makeRecord, appendRecord, readRecords, summarize, ledgerPath, planBudget } from './ledger.js';
@@ -95,6 +95,7 @@ const inferLead = (flags, from) => flags.lead || (from === 'claude' || from === 
 async function cmdAsk(rest, flags, cfg) {
   const [agent, ...words] = rest;
   if (!['gemini', 'claude'].includes(agent)) throw new Error('Usage: tandem ask <gemini|claude> "prompt" [--model m] [--edit] [--file f]');
+  assertNotSolo(cfg);
   const prompt = await promptFrom(words, flags);
   if (!prompt) throw new Error('Empty prompt');
   const from = inferCaller(flags);
@@ -106,6 +107,31 @@ async function cmdAsk(rest, flags, cfg) {
   }, { from, category: checkCategory(flags.category), tag: flags.tag, thread: flags.thread || null, lead: inferLead(flags, from) }, cfg);
   printResult(res, rec, flags);
   exitFor(res);
+}
+
+// Solo blocks every delegated call, typed or agent-run: tandem can't reliably tell a shell call
+// from Antigravity apart from the user's own terminal.
+function assertNotSolo(cfg) {
+  const msg = soloBlock(cfg);
+  if (msg) throw new Error(msg);
+}
+
+async function cmdSolo(rest, flags, cfg) {
+  const [arg] = rest;
+  if (arg === 'on' || arg === 'off') {
+    const user = readUserConfig();
+    const dur = arg === 'on' && flags.for ? parseDuration(flags.for) : null;
+    user.solo = arg === 'on' ? { on: true, until: dur ? new Date(Date.now() + dur).toISOString() : null } : { on: false, until: null };
+    saveUserConfig(user);
+    cfg = loadConfig();
+  } else if (arg !== undefined) {
+    throw new Error('Usage: tandem solo [on [--for 5h]|off]');
+  }
+  const s = soloState(cfg);
+  if (flags.json) return void process.stdout.write(JSON.stringify(s, null, 2) + '\n');
+  console.log(s.on
+    ? `${c.yellow('solo on')}${s.until ? ` until ${s.until}` : ' (until `tandem solo off`)'}: agents work alone, calls to the other agent are blocked.`
+    : `${c.green('solo off')}: agents delegate when you ask (/gemini, /pair, "ask claude", "use tandem freely").`);
 }
 
 async function cmdRoute(rest, flags, cfg) {
@@ -122,6 +148,7 @@ async function cmdRoute(rest, flags, cfg) {
 async function cmdRun(rest, flags, cfg) {
   const prompt = await promptFrom(rest, flags);
   if (!prompt) throw new Error('Usage: tandem run "task" [--edit] [--no-fallback]');
+  assertNotSolo(cfg);
   const from = inferCaller(flags);
   const lead = inferLead(flags, from);
   const pick = route(prompt, await currentBudget(cfg), { pins: cfg.routing?.pins, lead, category: flags.category });
@@ -149,6 +176,7 @@ ${diff}
 </diff>`;
 
 async function cmdReview(rest, flags, cfg) {
+  assertNotSolo(cfg);
   if (flags.staged && flags.base) throw new Error('Use either --staged or --base, not both');
   if (flags.base && String(flags.base).startsWith('-')) throw new Error(`Invalid --base "${flags.base}"`);
   const gitArgs = ['diff', '--no-color', '--no-ext-diff'];
@@ -194,6 +222,8 @@ async function cmdStats(rest, flags, cfg) {
   console.log(`  this week: ${c.green(usd(sv.offloadedWeekUsd))} offloaded · Claude spent ${usd(sv.claudeWeekUsd)} · Gemini share ${pct(sv.offloadShareWeek)}`);
   console.log(`  all time:  ${c.green(usd(sv.offloadedAllUsd))} offloaded` + (sv.geminiMonthlyUsd ? ` · Gemini plan ${usd(sv.geminiMonthlyUsd)}/mo` : ''));
   printBudget(s.budget);
+  const solo = soloState(cfg);
+  if (solo.on) console.log('\n' + c.yellow(`solo mode on${solo.until ? ` until ${solo.until}` : ''}: delegation blocked (tandem solo off)`));
 }
 
 function resetsIn(iso) {
@@ -454,6 +484,7 @@ const HELP = `tandem — Claude Code + Gemini (Antigravity) as one team
   tandem run "task"                     route + call, falls back to the other agent on failure [--thread id] [--lead a] [--category c]
   tandem review [--agent gemini|claude|both] [--staged] [--base ref] [--thread id]   review git diff
   tandem show [last|<id>|thread:<id>]   render an exchange from its native transcript [--max 4000] [--json]
+  tandem solo [on [--for 5h]|off]       single-agent mode: block all calls between agents
   tandem prefer [claude|gemini <model>] view or set default models
   tandem pin [<cat> <agent:model>|--clear]   view, set or clear per-category routing pins
   tandem models [--live]                list aliases → slugs, defaults (★) and pins
@@ -486,6 +517,7 @@ export async function main(argv) {
   switch (cmd) {
     case 'ask': return cmdAsk(rest, flags, cfg);
     case 'route': return cmdRoute(rest, flags, cfg);
+    case 'solo': return cmdSolo(rest, flags, cfg);
     case 'run': return cmdRun(rest, flags, cfg);
     case 'review': return cmdReview(rest, flags, cfg);
     case 'prefer': return cmdPrefer(rest, flags, cfg);

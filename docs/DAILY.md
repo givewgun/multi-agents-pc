@@ -4,18 +4,21 @@ One-time per machine: `npm i -g <repo>` → `tandem init --global` → restart C
 
 ## In Claude Code (default place to work)
 
-Just talk. Claude has the `ask_gemini` tool and `/gemini` skill everywhere.
+Just talk. Claude works alone until you ask; then it has the `ask_gemini` tool and `/gemini` skill everywhere.
 
 | Say | What happens |
 |---|---|
 | "use gemini for the grunt work" | Claude plans and delegates reading/boilerplate/tests to Gemini, then reviews |
+| "use tandem freely" | Claude splits the task and delegates whatever fits, by its own judgment, then verifies |
 | "ask gemini to map this repo" | Gemini Neon reads, Claude gets a short summary (saves Claude context) |
 | "get a second opinion from gemini" | Gemini critiques Claude's plan or diff |
 | "what's the latest X? ask gemini" | Google-grounded answer, no Claude web tokens |
 
+Want one agent only? `tandem solo on` (or `--for 3h`) blocks every call between agents, both directions; `tandem solo off` ends it.
+
 ## In Antigravity (Gemini leads)
 
-Same team, roles swapped. Say "work with claude", "ask claude", "/pair", or "get claude's review". Gemini uses the tandem plugin's `ask_claude` tool, which prompts you first because it uses Claude limits, and keeps those calls small. Best when the work is big, UI-heavy, or parallel.
+Same team, roles swapped. Say "work with claude", "ask claude", "/pair", "get claude's review", or "use tandem freely". Gemini uses the tandem plugin's `ask_claude` tool, which prompts you first because it uses Claude limits, and keeps those calls small. Best when the work is big, UI-heavy, or parallel.
 
 ## See what they said to each other
 

@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { AGENTIC_TASKS } from './agentic-tasks.js';
 import { callAndLog } from '../cli.js';
 import { readRecords } from '../ledger.js';
-import { tandemHome } from '../config.js';
+import { tandemHome, loadConfig, soloBlock } from '../config.js';
 import { usd, ms, pct, c, table } from '../format.js';
 
 const TEST_ALLOW_CLAUDE = ['Bash(node --test:*)', 'Bash(npm test:*)'];
@@ -18,8 +18,8 @@ const TEST_ALLOW_GEMINI = ['command(node --test)', 'command(npm test)'];
 const FOOTER = '\n\nWork only inside the current directory. Run `node --test` to check your work. When done, reply with a two-line summary of what you changed.';
 
 export const HINTS = {
-  claude: '\n\nTeam: you have a teammate, Gemini, via the `ask_gemini` tool (always pass `cwd` = the current directory). Gemini is on a flat subscription (cheap) and good at reading many files, summarizing, writing tests and first-pass review; you are expensive and best at judgment and precise edits. Delegate whatever saves you effort. You own the final result.',
-  gemini: '\n\nTeam: you have a teammate, Claude, via the `ask_claude` tool (always pass `cwd` = the current directory). Claude costs real money per call; use it only where its judgment clearly matters (a hard bug you are unsure about, a final review). You own the final result.',
+  claude: '\n\nUse tandem freely. Team: you have a teammate, Gemini, via the `ask_gemini` tool (always pass `cwd` = the current directory). Gemini is on a flat subscription (cheap) and good at reading many files, summarizing, writing tests and first-pass review; you are expensive and best at judgment and precise edits. Delegate whatever saves you effort. You own the final result.',
+  gemini: '\n\nUse tandem freely. Team: you have a teammate, Claude, via the `ask_claude` tool (always pass `cwd` = the current directory). Claude costs real money per call; use it only where its judgment clearly matters (a hard bug you are unsure about, a final review). You own the final result.',
 };
 
 export const SETUPS = {
@@ -85,6 +85,7 @@ export async function agenticBench(flags, cfg) {
   const names = flags.setups ? String(flags.setups).split(',') : Object.keys(SETUPS);
   const bad = names.find((n) => !SETUPS[n]);
   if (bad) throw new Error(`Unknown setup "${bad}". Available: ${Object.keys(SETUPS).join(', ')}`);
+  if (names.some((n) => SETUPS[n].team) && soloBlock(loadConfig())) throw new Error('solo mode is on: team setups need delegation. Run `tandem solo off`, or pick solo setups with --setups.');
   const root = path.resolve(flags.workdir || path.join(os.tmpdir(), 'tandem-bench'));
   mkdirSync(root, { recursive: true });
   const jobs = [];

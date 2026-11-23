@@ -1,6 +1,6 @@
 ---
 name: pair
-description: Work with Gemini as a team — plan-critique, split by strength, dual review, second opinion, or hand over the lead. Use when the user says "work with gemini", "pair", "get gemini's view", "split this", or when a task is big enough that two agents beat one.
+description: Work with Gemini as a team — plan-critique, split by strength, dual review, second opinion, or hand over the lead. Use only when the user asks: "/pair", "work with gemini", "get gemini's view", or "use tandem freely". Never on your own initiative.
 ---
 
 # Pair with Gemini (you are the lead)

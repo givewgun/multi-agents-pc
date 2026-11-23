@@ -50,6 +50,7 @@ flowchart TD
 
 - **Normalized result** (agents.js `result()`): `{agent, model, ok, status, text, sessionId, usage{input,output,thinking,cacheRead,cacheWrite,total}, costUsd, durationMs, turns, denied[], error, stderr}`. `status ∈ ok|error|quota|auth|timeout|denied|missing`.
 - **Ledger record v1** (ledger.js `makeRecord`): append-only JSONL. Add fields, never rename. Bump `v` on breaking change.
+- **Solo** (`soloState(cfg)` → `{on, until}`, `soloBlock(cfg)` → message|null in `config.js`): checked by MCP `ask_*`, CLI `ask`/`run`/`review`, and `bench --agentic` team setups. Reported in `tandem_stats`, `tandem stats` and the dashboard summary (`summary.solo`).
 - **Summary shape** (`summarize`): consumed by the dashboard, MCP `tandem_stats` and the router. Change all three together. `budget` = `planBudget()`: `{warnAt, geminiQuotaHitAt, claude|gemini: {known, at, ageMs, source, status, fiveHour{used,resetsAt}, weekly{…}, other?, limits{fiveHour,weekly}, exhausted, warn}}`.
 - **Router rule**: `{category, agent, model(alias), weight, re, reason}`. `category` names are shared with bench tasks. `general` (no match → gemini:neon) is a fallback, not a rule.
 - **Route pick**: `{category, agent, model, reason, confidence, source: 'lead'|'rules', needsJudgment, alternatives, notes, partnerRequired, lead?, self?}`. `route(task, budget, {lead, pins, category})`: a valid `category` skips the regex; unknown ones throw.

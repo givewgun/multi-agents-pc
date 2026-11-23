@@ -2,8 +2,8 @@
 name: pair
 description: >-
   Work with Claude as a team — plan-critique, split by strength, dual review, second opinion,
-  or hand over the lead. Use when the user says "work with claude", "ask claude", "pair",
-  "second opinion", "review", "split this", or when a task benefits from two agents.
+  or hand over the lead. Use only when the user asks: "/pair", "work with claude", "pair with claude",
+  or "use tandem freely". Never on your own initiative.
 ---
 
 # Pair with Claude (you are the lead)
