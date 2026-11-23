@@ -228,9 +228,12 @@ async function promptHook(agent) {
     if (!isObj(state)) state = {};
     const inj = modeInjection(agent, loadConfig(), state[session]);
     text = inj.text;
-    if (state[session] !== inj.key) {
+    // Only free/solo sessions need memory; an ask session has no entry (same as "never injected"),
+    // so plain ask traffic can't push active sessions out of the pruned file.
+    const ask = inj.key === 'ask|';
+    if (ask ? Object.hasOwn(state, session) : state[session] !== inj.key) {
       delete state[session]; // re-insert last, so pruning drops the oldest sessions
-      state[session] = inj.key;
+      if (!ask) state[session] = inj.key;
       const keys = Object.keys(state);
       for (const k of keys.slice(0, Math.max(0, keys.length - 200))) delete state[k];
       mkdirSync(tandemHome(), { recursive: true });
@@ -285,8 +288,12 @@ export function installClaudeHook(settingsPath = path.join(os.homedir(), '.claud
     for (const g of s.hooks[event]) {
       for (const h of Array.isArray(g?.hooks) ? g.hooks : []) {
         if (!re.test(h?.command || '')) continue;
-        found = h.command === command ? 'present' : 'updated';
-        h.command = command; // repo moved or install method changed
+        if (h.command !== command) {
+          h.command = command; // repo moved or install method changed
+          found = 'updated';
+        } else {
+          found ||= 'present'; // never downgrade an earlier stale match's 'updated'
+        }
       }
     }
     if (!found) s.hooks[event].push({ hooks: [{ type: 'command', command, timeout: 10 }] });

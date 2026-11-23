@@ -117,6 +117,8 @@ function assertNotSolo(cfg) {
 }
 
 function writeMode(value, flags) {
+  // The mode is the user's switch: a partner tandem spawned must not flip it (e.g. end solo).
+  if (process.env.TANDEM_MANAGED) throw new Error('tandem mode can only be changed by the user, not by a partner run');
   if (value === 'ask' && Object.hasOwn(flags, 'for')) throw new Error('--for only applies to free or solo (ask is the default and never expires)');
   const hasFor = value !== 'ask' && Object.hasOwn(flags, 'for');
   // A bad --for must fail loudly: falling back to "no end time" would leave the mode on indefinitely.

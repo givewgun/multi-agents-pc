@@ -87,6 +87,16 @@ describe('v0.2 review fixes', () => {
     assert.equal(s2.hooks.UserPromptSubmit[0].hooks[0].command, 'other-prompt.ps1');
     assert.equal(s2.hooks.UserPromptSubmit[1].hooks[0].command, hookCommand('claude', 'prompt'));
 
+    // A stale entry before a current one must still be rewritten (not reported 'present' and skipped).
+    const f3 = path.join(tmp, 'settings-dupe.json');
+    fs.writeFileSync(f3, JSON.stringify({ hooks: {
+      Stop: [{ hooks: [{ type: 'command', command: '"C:/old/tandem.js" hook claude' }] }, { hooks: [{ type: 'command', command: hookCommand('claude') }] }],
+      UserPromptSubmit: [{ hooks: [{ type: 'command', command: hookCommand('claude', 'prompt') }] }],
+    } }));
+    assert.equal(installClaudeHook(f3), 'updated');
+    const s3 = JSON.parse(fs.readFileSync(f3, 'utf8'));
+    assert.equal(s3.hooks.Stop[0].hooks[0].command, hookCommand('claude'));
+
     fs.writeFileSync(f, '[]');
     assert.throws(() => installClaudeHook(f), /not a JSON object/);
   });

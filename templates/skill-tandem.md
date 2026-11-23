@@ -1,5 +1,6 @@
 ---
 name: tandem
+disable-model-invocation: true
 description: Set tandem's delegation mode when the user types "/tandem" ("/tandem free", "/tandem ask", "/tandem solo --for 3h", "/tandem" for status). Only on the user's explicit /tandem command; never change the mode on your own.
 ---
 

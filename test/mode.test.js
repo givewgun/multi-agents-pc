@@ -212,9 +212,24 @@ describe('tandem mode / solo (CLI + hooks + MCP)', () => {
       const reset2 = cli(['hook', 'gemini', 'prompt'], { input: JSON.stringify({ conversationId: 'c1' }) });
       assert.equal(reset2.status, 0);
       assert.equal(reset2.stdout, '{}\n');
+
+      // Ask sessions keep no entry, so ask traffic can't evict active free/solo sessions.
+      const after = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+      assert.equal(Object.hasOwn(after, 'gemini:c1'), false);
+      cli(['hook', 'gemini', 'prompt'], { input: JSON.stringify({ conversationId: 'fresh' }) });
+      assert.equal(Object.hasOwn(JSON.parse(fs.readFileSync(stateFile, 'utf8')), 'gemini:fresh'), false);
     } finally {
       cli(['mode', 'ask']);
     }
+  });
+
+  it('refuses mode changes from tandem-spawned partner runs', () => {
+    for (const args of [['mode', 'free'], ['mode', 'ask'], ['solo', 'on']]) {
+      const r = cli(args, { env: { TANDEM_MANAGED: '1' } });
+      assert.notEqual(r.status, 0, args.join(' '));
+      assert.match(r.stderr, /only be changed by the user/);
+    }
+    assert.equal(JSON.parse(cli(['mode', '--json']).stdout).mode, 'ask');
   });
 
   it('MCP ask_gemini returns an error while mode solo is on; tandem_stats reports mode', async () => {
