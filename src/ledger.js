@@ -17,6 +17,33 @@ export function claudeEquivalentUsd(usage, pricing, model) {
   return (freshInput * p.input + cacheRead * p.cacheRead + out * p.output) / 1e6;
 }
 
+/** Compare plan usage with the configured window limits. */
+export function planBudget(usage, cfg, records = [], now = Date.now()) {
+  const b = { ...DEFAULT_BUDGETS, ...(cfg.budgets || {}) };
+  const side = (snap, lim5h, limWeek) => {
+    if (!snap) return { known: false, exhausted: false, warn: false, fiveHour: null, weekly: null, limits: { fiveHour: lim5h, weekly: limWeek } };
+    const u5 = snap.fiveHour?.used ?? 0;
+    const uw = snap.weekly?.used ?? 0;
+    const exhausted = snap.status === 'rejected' || u5 >= lim5h || uw >= limWeek;
+    return {
+      known: true, at: snap.at, ageMs: snap.ageMs ?? null, source: snap.source, status: snap.status ?? null,
+      fiveHour: snap.fiveHour, weekly: snap.weekly, other: snap.other,
+      limits: { fiveHour: lim5h, weekly: limWeek },
+      exhausted,
+      warn: !exhausted && (u5 >= b.warnAt * lim5h || uw >= b.warnAt * limWeek),
+    };
+  };
+  const claude = side(usage?.claude, b.claude5h, b.claudeWeek);
+  const gemini = side(usage?.gemini, b.gemini5h, b.geminiWeek);
+  // A quota error is ground truth even if the last snapshot looked fine.
+  const lastQuota = [...records].reverse().find((r) => r.to === 'gemini' && r.status === 'quota');
+  const recentQuota = !!lastQuota && now - Date.parse(lastQuota.ts) < 5 * H && !(gemini.known && Date.parse(gemini.at) > Date.parse(lastQuota.ts));
+  if (recentQuota) gemini.exhausted = true;
+  return { warnAt: b.warnAt, claude, gemini, geminiQuotaHitAt: lastQuota?.ts ?? null };
+}
+
+const DEFAULT_BUDGETS = { claude5h: 0.8, claudeWeek: 0.85, gemini5h: 0.95, geminiWeek: 0.95, warnAt: 0.7 };
+
 export function makeRecord(res, { from = 'user', category = null, tag = null, promptChars = 0, cwd = process.cwd() }, cfg) {
   const claudeEquivUsd = res.agent === 'claude'
     ? res.costUsd
@@ -41,6 +68,8 @@ export function makeRecord(res, { from = 'user', category = null, tag = null, pr
     sessionId: res.sessionId,
     denied: res.denied,
     error: res.error ? String(res.error).slice(0, 500) : null,
+    // Plan usage right after the call (Claude only; Gemini's comes from `agy /usage`).
+    plan: res.plan ? { fiveHour: res.plan.fiveHour?.used ?? null, weekly: res.plan.weekly?.used ?? null } : undefined,
   };
 }
 
@@ -77,7 +106,8 @@ function add(b, r) {
 }
 
 /** Aggregate the ledger for CLI stats, budget checks and the dashboard. */
-export function summarize(records, cfg, now = Date.now()) {
+/** @param usage getUsage() result ({claude, gemini} plan snapshots) or null if unknown */
+export function summarize(records, cfg, now = Date.now(), usage = null) {
   const since = (ms) => records.filter((r) => now - Date.parse(r.ts) <= ms);
   const week = since(7 * 24 * H);
   const fiveH = since(5 * H);
@@ -103,14 +133,6 @@ export function summarize(records, cfg, now = Date.now()) {
   const offloadedAllUsd = records.filter((r) => r.to === 'gemini' && r.status === 'ok')
     .reduce((s, r) => s + (r.claudeEquivUsd || 0), 0);
 
-  const b = cfg.budgets || {};
-  // cap 0 = "none allowed" → exhausted (1, since Infinity doesn't survive JSON); null/negative/invalid = unset.
-  const ratio = (used, cap) => {
-    if (typeof cap !== 'number' || !Number.isFinite(cap) || cap < 0) return null;
-    return cap === 0 ? Math.max(1, used) : used / cap;
-  };
-  const lastQuota = [...records].reverse().find((r) => r.to === 'gemini' && r.status === 'quota');
-
   const sub = cfg.subscriptions || {};
   const monthly = (sub.claude?.monthlyUsd || 0) + (sub.gemini?.monthlyUsd || 0);
 
@@ -127,14 +149,11 @@ export function summarize(records, cfg, now = Date.now()) {
       geminiMonthlyUsd: sub.gemini?.monthlyUsd ?? null,
       subscriptionsMonthlyUsd: monthly || null,
     },
-    budget: {
-      warnAt: b.warnAt ?? 0.8,
-      claudeWeek: { used: claudeWeekUsd, cap: b.claudeWeeklyUsd ?? null, ratio: ratio(claudeWeekUsd, b.claudeWeeklyUsd) },
-      gemini5h: { used: fiveH.filter((r) => r.to === 'gemini').length, cap: b.gemini5hCalls ?? null, ratio: ratio(fiveH.filter((r) => r.to === 'gemini').length, b.gemini5hCalls) },
-      geminiWeek: { used: week.filter((r) => r.to === 'gemini').length, cap: b.geminiWeeklyCalls ?? null, ratio: ratio(week.filter((r) => r.to === 'gemini').length, b.geminiWeeklyCalls) },
-      geminiQuotaHitAt: lastQuota?.ts ?? null,
-      geminiLikelyLimited: !!lastQuota && now - Date.parse(lastQuota.ts) < 5 * H,
+    activity: {
+      fiveHour: { claude: fiveH.filter((r) => r.to === 'claude').length, gemini: fiveH.filter((r) => r.to === 'gemini').length },
+      week: { claude: week.filter((r) => r.to === 'claude').length, gemini: week.filter((r) => r.to === 'gemini').length },
     },
+    budget: planBudget(usage, cfg, records, now),
     recent: records.slice(-50).reverse(),
   };
 }

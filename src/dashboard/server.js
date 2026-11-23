@@ -1,8 +1,9 @@
 import http from 'node:http';
 import { readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
-import { readRecords, summarize } from '../ledger.js';
+import { readRecords, summarize, planBudget } from '../ledger.js';
 import { loadConfig } from '../config.js';
+import { getUsage } from '../usage.js';
 
 const INDEX_URL = new URL('./index.html', import.meta.url);
 const HOST = '127.0.0.1';
@@ -39,7 +40,7 @@ function send(res, status, contentType, body) {
 }
 
 function createHandler(cfg) {
-  return (req, res) => {
+  return async (req, res) => {
     try {
       const url = new URL(req.url || '/', `http://${HOST}`);
       if (req.method === 'GET' && url.pathname === '/') {
@@ -59,9 +60,10 @@ function createHandler(cfg) {
         const liveCfg = loadConfig();
         const all = readRecords();
         const shown = excludes.size > 0 ? all.filter((r) => !excludes.has(r.tag)) : all;
-        const summary = summarize(shown, liveCfg);
-        // Budgets are about real quota use, so they always count every call, benchmarks included.
-        if (shown !== all) summary.budget = summarize(all, liveCfg).budget;
+        // Plan usage comes from the agents (Gemini refreshed at most every 5 min), not the ledger.
+        const usage = await getUsage(liveCfg);
+        const summary = summarize(shown, liveCfg, Date.now(), usage);
+        summary.budget = planBudget(usage, liveCfg, all);
         send(res, 200, 'application/json; charset=utf-8', JSON.stringify(summary));
         return;
       }

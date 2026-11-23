@@ -44,36 +44,39 @@ describe('route()', () => {
     assert.equal(pick.model, 'neon');
   });
 
-  it('overrides claude pick to gemini/neon-high when claudeWeek ratio >= 1', () => {
+  // Budget shape: planBudget() — per agent plan-window usage vs. tandem's limits.
+  const side = (over) => ({ known: true, exhausted: false, warn: false, fiveHour: { used: 0.1 }, weekly: { used: 0.1 }, ...over });
+
+  it('overrides claude pick to gemini/neon-high when the Claude plan is at its limit', () => {
     const pick = route('fix race condition in cache', {
-      warnAt: 0.8,
-      claudeWeek: { ratio: 1.0 },
+      claude: side({ exhausted: true, fiveHour: { used: 0.82 } }), gemini: side(),
     });
     assert.equal(pick.agent, 'gemini');
     assert.equal(pick.model, 'neon-high');
-    assert.ok(pick.notes.length > 0);
-    assert.match(pick.notes[0], /100%/);
+    assert.match(pick.notes[0], /Claude plan at its limit \(5h 82%/);
   });
 
-  it('overrides gemini pick to claude/sonnet when geminiLikelyLimited is true', () => {
+  it('overrides gemini pick to claude/sonnet when the Gemini plan is at its limit', () => {
     const pick = route('write unit tests for parser', {
-      warnAt: 0.8,
-      geminiLikelyLimited: true,
+      claude: side(), gemini: side({ exhausted: true }), geminiQuotaHitAt: '2026-11-23T10:00:00Z',
     });
     assert.equal(pick.agent, 'claude');
     assert.equal(pick.model, 'sonnet');
-    assert.ok(pick.notes.length > 0);
-    assert.match(pick.notes[0], /Gemini quota/i);
+    assert.match(pick.notes[0], /Gemini plan at its limit.*quota error/);
   });
 
-  it('keeps claude and adds a warning note when claudeWeek ratio >= warnAt', () => {
+  it('keeps claude and adds a warning note when the Claude plan is getting full', () => {
     const pick = route('design the architecture for billing', {
-      warnAt: 0.8,
-      claudeWeek: { ratio: 0.85 },
+      claude: side({ warn: true, fiveHour: { used: 0.6 } }), gemini: side(),
     });
     assert.equal(pick.agent, 'claude');
     assert.equal(pick.model, 'opus');
-    assert.ok(pick.notes.length > 0);
-    assert.match(pick.notes[0], /85%/);
+    assert.match(pick.notes[0], /getting full \(5h 60%/);
+  });
+
+  it('unknown usage changes nothing', () => {
+    const pick = route('fix race condition in cache', { claude: { known: false }, gemini: { known: false } });
+    assert.equal(pick.agent, 'claude');
+    assert.deepEqual(pick.notes, []);
   });
 });

@@ -9,6 +9,7 @@ Read the one-liner first. Open the file only if you're touching that area. New d
 | [0003](0003-read-only-default.md) | Delegated calls read-only unless `--edit`; review sends the diff in the prompt instead of granting shell | accepted |
 | [0004](0004-prompt-transport.md) | Claude prompt via stdin; Gemini via argv, or stream-json stdin when >24k chars (no temp files) | accepted |
 | [0005](0005-rule-router-bench-validated.md) | Regex router (0 tokens), validated and tuned by `tandem bench` | accepted |
-| [0006](0006-local-ledger-savings.md) | Local JSONL ledger; savings = Gemini tokens at Claude price (estimate); prompts never stored | accepted |
+| [0006](0006-local-ledger-savings.md) | Local JSONL ledger; savings = Gemini tokens at Claude price (estimate); prompts never stored | accepted; budget part superseded by 0009 |
 | [0007](0007-mcp-expose-other-agent.md) | Hand-rolled MCP server; each side sees only the other agent's tool | accepted |
 | [0008](0008-dashboard-local-static.md) | Dashboard = 127.0.0.1 server + one static HTML file, polling | accepted |
+| [0009](0009-plan-window-budgets.md) | Budgets = % of each plan's 5h/weekly window, read from `claude` rate_limit_event and free `agy /usage` | accepted |

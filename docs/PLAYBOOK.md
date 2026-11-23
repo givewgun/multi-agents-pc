@@ -56,5 +56,5 @@ Unsure? `tandem route "task"`. It spends no tokens.
 2. Smallest model that works: Flash → Hydrogen → Orchestrator → Neon; Haiku → Sonnet → Opus. `tandem bench` tells you where each one starts failing.
 3. Self-contained handoffs. A vague handoff costs a retry on both sides.
 4. Ask for summaries, not dumps ("<300 words").
-5. Set budgets: `tandem budget set claude 25` (USD/week, API-equivalent) and `tandem budget set gemini-5h 40`. The router steers away from an exhausted pool.
+5. Both plans meter a rolling 5-hour and weekly window. `tandem usage` shows both. Tune how much of each window tandem may use: `tandem budget set claude-5h 70%` keeps 30% of your Claude window for interactive work. The router steers away from a full plan.
 6. Watch `tandem dashboard`. If Gemini's share is low, you're paying Claude for typing.

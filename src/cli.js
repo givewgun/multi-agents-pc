@@ -2,11 +2,12 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { loadConfig, setConfigValue, configPath, readUserConfig } from './config.js';
 import { ask } from './agents.js';
-import { makeRecord, appendRecord, readRecords, summarize, ledgerPath } from './ledger.js';
+import { makeRecord, appendRecord, readRecords, summarize, ledgerPath, planBudget } from './ledger.js';
+import { getUsage, storeSnapshot } from './usage.js';
 import { route } from './router.js';
 import { usd, tok, ms, pct, c, bar, table } from './format.js';
 
-const BOOL = new Set(['edit', 'json', 'force', 'mcp', 'open', 'no-fallback', 'staged', 'help', 'quiet', 'dry-run', 'live', 'global']);
+const BOOL = new Set(['edit', 'json', 'force', 'mcp', 'open', 'no-fallback', 'staged', 'help', 'quiet', 'dry-run', 'live', 'global', 'refresh-claude']);
 
 export function parseArgs(argv) {
   const out = { _: [], flags: {} };
@@ -51,8 +52,14 @@ async function promptFrom(rest, flags) {
 /** Call an agent and log it. Shared by CLI, MCP server and bench. */
 export async function callAndLog(agent, opts, meta, cfg) {
   const res = await ask(agent, opts, cfg);
+  if (res.plan) storeSnapshot(res.agent, res.plan); // free Claude plan-usage reading
   const rec = appendRecord(makeRecord(res, { promptChars: opts.prompt.length, cwd: opts.cwd, ...meta }, cfg));
   return { res, rec };
+}
+
+/** Plan usage vs. limits right now (refreshes Gemini's free reading when stale). */
+export async function currentBudget(cfg, records = readRecords()) {
+  return planBudget(await getUsage(cfg), cfg, records);
 }
 
 function printResult(res, rec, flags) {
@@ -82,7 +89,7 @@ async function cmdAsk(rest, flags, cfg) {
 
 async function cmdRoute(rest, flags, cfg) {
   const task = await promptFrom(rest, flags);
-  const pick = route(task, summarize(readRecords(), cfg).budget);
+  const pick = route(task, await currentBudget(cfg));
   if (flags.json) return void process.stdout.write(JSON.stringify(pick, null, 2) + '\n');
   console.log(`${c.bold(pick.agent)} ${c.cyan(pick.model)}  ${c.dim(`[${pick.category}, confidence ${pct(pick.confidence)}]`)}`);
   console.log(pick.reason);
@@ -93,7 +100,7 @@ async function cmdRoute(rest, flags, cfg) {
 async function cmdRun(rest, flags, cfg) {
   const prompt = await promptFrom(rest, flags);
   if (!prompt) throw new Error('Usage: tandem run "task" [--edit] [--no-fallback]');
-  const pick = route(prompt, summarize(readRecords(), cfg).budget);
+  const pick = route(prompt, await currentBudget(cfg));
   const model = flags.model || pick.model;
   process.stderr.write(c.dim(`→ ${pick.agent}/${model} (${pick.category}): ${pick.reason}\n`));
   for (const n of pick.notes) process.stderr.write(c.yellow(`! ${n}\n`));
@@ -142,8 +149,8 @@ async function cmdReview(rest, flags, cfg) {
   process.exitCode = runs.every((r) => r.res.ok) ? 0 : 1;
 }
 
-function cmdStats(rest, flags, cfg) {
-  const s = summarize(readRecords(), cfg);
+async function cmdStats(rest, flags, cfg) {
+  const s = summarize(readRecords(), cfg, Date.now(), await getUsage(cfg));
   if (flags.json) return void process.stdout.write(JSON.stringify({ ...s, recent: undefined }, null, 2) + '\n');
   const { claude, gemini } = s.totals;
   console.log(c.bold('Calls'));
@@ -162,23 +169,67 @@ function cmdStats(rest, flags, cfg) {
   printBudget(s.budget);
 }
 
-function printBudget(b) {
-  console.log('\n' + c.bold('Budget'));
-  console.log(`  Claude 7d   ${bar(b.claudeWeek.ratio)}  ${usd(b.claudeWeek.used)} / ${usd(b.claudeWeek.cap)}`);
-  console.log(`  Gemini 5h   ${bar(b.gemini5h.ratio)}  ${b.gemini5h.used} / ${b.gemini5h.cap ?? '—'} calls`);
-  console.log(`  Gemini 7d   ${bar(b.geminiWeek.ratio)}  ${b.geminiWeek.used} / ${b.geminiWeek.cap ?? '—'} calls`);
-  if (b.geminiLikelyLimited) console.log(c.yellow(`  ! Gemini quota error at ${b.geminiQuotaHitAt}; router prefers Claude for 5h`));
+function resetsIn(iso) {
+  if (!iso) return '';
+  const m = Math.max(0, Math.round((Date.parse(iso) - Date.now()) / 60_000));
+  return c.dim(`resets in ${m >= 1440 ? `${Math.floor(m / 1440)}d ${Math.floor((m % 1440) / 60)}h` : `${Math.floor(m / 60)}h ${m % 60}m`}`);
 }
 
-function cmdBudget(rest, flags, cfg) {
+const age = (ms) => (ms == null ? '' : ms < 60_000 ? 'just now' : ms < 3_600_000 ? `${Math.round(ms / 60_000)}m ago` : `${Math.round(ms / 3_600_000)}h ago`);
+
+function printBudget(b) {
+  console.log('\n' + c.bold('Plan usage') + c.dim('  (bar fills up to tandem\'s limit for that window)'));
+  for (const [name, s] of [['Claude', b.claude], ['Gemini', b.gemini]]) {
+    if (!s.known) {
+      console.log(`  ${name.padEnd(7)} ${c.dim(name === 'Claude' ? 'unknown until tandem makes a Claude call (or run: tandem usage --refresh-claude)' : 'unknown (agy not found?)')}`);
+      continue;
+    }
+    for (const [label, w, lim] of [['5h  ', s.fiveHour, s.limits.fiveHour], ['week', s.weekly, s.limits.weekly]]) {
+      if (!w) continue;
+      console.log(`  ${name.padEnd(7)}${label}  ${bar(w.used / lim, 20, false)}  ${pct(w.used).padStart(4)} of plan · limit ${pct(lim)}  ${resetsIn(w.resetsAt)}`);
+    }
+    console.log(c.dim(`          from ${s.source}, ${age(s.ageMs)}${s.status && s.status !== 'allowed' ? ` · status ${s.status}` : ''}`));
+    for (const o of s.other || []) {
+      const busy = o.windows.filter((w) => w.used > 0);
+      if (busy.length) console.log(c.dim(`          ${o.name}: ${busy.map((w) => `${w.window} ${pct(w.used)}`).join(', ')}`));
+    }
+  }
+  if (b.claude.exhausted) console.log(c.yellow('  ! Claude at its limit: router sends Claude work to Gemini Neon High'));
+  if (b.gemini.exhausted) console.log(c.yellow(`  ! Gemini at its limit${b.geminiQuotaHitAt ? ` (quota error ${b.geminiQuotaHitAt})` : ''}: router sends Gemini work to Claude Sonnet`));
+}
+
+const BUDGET_KEYS = {
+  'claude-5h': 'budgets.claude5h', 'claude-week': 'budgets.claudeWeek',
+  'gemini-5h': 'budgets.gemini5h', 'gemini-week': 'budgets.geminiWeek', warn: 'budgets.warnAt',
+  'claude-plan': 'subscriptions.claude.monthlyUsd', 'gemini-plan': 'subscriptions.gemini.monthlyUsd',
+};
+
+async function cmdBudget(rest, flags, cfg) {
   if (rest[0] === 'set') {
-    const map = { claude: 'budgets.claudeWeeklyUsd', 'gemini-5h': 'budgets.gemini5hCalls', 'gemini-week': 'budgets.geminiWeeklyCalls', warn: 'budgets.warnAt', 'claude-plan': 'subscriptions.claude.monthlyUsd', 'gemini-plan': 'subscriptions.gemini.monthlyUsd' };
-    const key = Object.hasOwn(map, rest[1]) ? map[rest[1]] : null;
-    if (!key || rest[2] == null) throw new Error(`Usage: tandem budget set <${Object.keys(map).join('|')}> <value>`);
-    console.log(`${key} = ${setConfigValue(key, rest[2])}`);
+    const key = Object.hasOwn(BUDGET_KEYS, rest[1]) ? BUDGET_KEYS[rest[1]] : null;
+    if (!key || rest[2] == null) throw new Error(`Usage: tandem budget set <${Object.keys(BUDGET_KEYS).join('|')}> <value>  (limits as 80% or 0.8)`);
+    let v = rest[2];
+    if (key.startsWith('budgets.')) {
+      const n = v.endsWith('%') ? Number(v.slice(0, -1)) / 100 : Number(v);
+      if (!Number.isFinite(n) || n <= 0 || n > 1) throw new Error('Window limits are fractions of the plan window: 0.01–1 or 1%–100%');
+      v = String(n);
+    }
+    console.log(`${key} = ${setConfigValue(key, v)}`);
     return;
   }
-  printBudget(summarize(readRecords(), cfg).budget);
+  return cmdUsage(rest, flags, cfg);
+}
+
+async function cmdUsage(rest, flags, cfg) {
+  if (flags['refresh-claude']) {
+    // Claude has no free usage endpoint; the cheapest reading is a one-word Haiku call.
+    process.stderr.write(c.dim('refreshing Claude plan usage with a tiny Haiku call (~$0.006 of plan usage)…\n'));
+    await callAndLog('claude', { prompt: 'Reply with: ok', model: 'haiku', maxTurns: 1 }, { from: 'tandem', tag: 'usage-probe' }, cfg);
+  }
+  const usage = await getUsage(cfg, { refresh: true });
+  const b = planBudget(usage, cfg, readRecords());
+  if (flags.json) return void process.stdout.write(JSON.stringify(b, null, 2) + '\n');
+  printBudget(b);
 }
 
 function cmdLog(rest, flags) {
@@ -206,8 +257,10 @@ const HELP = `tandem — Claude Code + Gemini (Antigravity) as one team
   tandem run "task"                     route + call, falls back to the other agent on failure
   tandem review [--agent gemini|claude|both] [--staged] [--base ref]   review git diff
   tandem log [--n 20]                   who talked to whom, tokens, savings
-  tandem stats                          totals, savings, budget
-  tandem budget [set <key> <value>]     claude | gemini-5h | gemini-week | warn | claude-plan | gemini-plan
+  tandem stats                          totals, savings, plan usage
+  tandem usage [--refresh-claude]       5h + weekly plan windows for Claude and Gemini
+  tandem budget set <key> <value>       window limits: claude-5h | claude-week | gemini-5h | gemini-week (e.g. 80%)
+                                        warn | claude-plan | gemini-plan (USD/month, for value stats)
   tandem dashboard [--port 4777]        local web UI
   tandem bench [--models a,b] [--tasks x,y] [--repeat n]   benchmark models on graded tasks
   tandem init [dir] [--mcp]             add AGENTS.md, CLAUDE.md, skills, rules to a project
@@ -230,6 +283,7 @@ export async function main(argv) {
     case 'review': return cmdReview(rest, flags, cfg);
     case 'stats': return cmdStats(rest, flags, cfg);
     case 'budget': return cmdBudget(rest, flags, cfg);
+    case 'usage': return cmdUsage(rest, flags, cfg);
     case 'log': return cmdLog(rest, flags, cfg);
     case 'config': return cmdConfig(rest, flags, cfg);
     case 'init': {

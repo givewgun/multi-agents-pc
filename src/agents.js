@@ -2,6 +2,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { which, run, isShim } from './proc.js';
 import { resolveGeminiModel, resolveClaudeModel } from './config.js';
+import { parseClaudeRateLimit } from './usage.js';
 
 const home = os.homedir();
 
@@ -65,7 +66,7 @@ function result(agent, model, fields) {
   return {
     agent, model, ok: false, status: 'error', text: '', sessionId: null,
     usage: { input: 0, output: 0, thinking: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-    costUsd: 0, durationMs: 0, turns: 0, denied: [], error: null, stderr: '',
+    costUsd: 0, durationMs: 0, turns: 0, denied: [], error: null, stderr: '', plan: null,
     ...fields,
   };
 }
@@ -143,19 +144,20 @@ export async function askClaude(opts, cfg) {
   if (!bin) return result('claude', model, { status: 'missing', error: 'claude CLI not found (https://claude.com/claude-code)' });
 
   // Default permission mode in -p: reads allowed, edits/commands denied unless allow-listed.
-  const args = ['-p', '--output-format', 'json', '--model', alias, '--max-turns', String(maxTurns)];
+  // stream-json (needs --verbose) carries the plan's rate_limit_event next to the usual result.
+  const args = ['-p', '--output-format', 'stream-json', '--verbose', '--model', alias, '--max-turns', String(maxTurns)];
   if (edit) args.push('--permission-mode', 'acceptEdits');
   if (resume) args.push('--resume', resume);
 
   const t0 = Date.now();
   const r = await run(bin, args, { cwd, input: prompt, timeoutMs });
   const durationMs = Date.now() - t0;
-  const j = lastJsonLine(r.stdout);
-  if (r.timedOut) return result('claude', model, { status: 'timeout', durationMs, stderr: r.stderr, error: 'timed out' });
+  const { final: j, plan } = claudeStream(r.stdout);
+  if (r.timedOut) return result('claude', model, { status: 'timeout', durationMs, stderr: r.stderr, error: 'timed out', plan });
   if (!j || (r.code !== 0 && typeof j.is_error !== 'boolean')) {
     return result('claude', model, {
-      status: classifyFailure(r.stderr + r.stdout), durationMs, stderr: r.stderr,
-      error: (r.stderr || r.stdout || `claude exited ${r.code}`).trim().slice(0, 2000),
+      status: plan?.status === 'rejected' ? 'quota' : classifyFailure(r.stderr + r.stdout), durationMs, stderr: r.stderr, plan,
+      error: (r.stderr || r.stdout || `claude exited ${r.code}`).trim().slice(-2000),
     });
   }
   const u = j.usage || {};
@@ -179,7 +181,23 @@ export async function askClaude(opts, cfg) {
     denied: (j.permission_denials || []).map((d) => d.tool_name || 'tool'),
     error: j.is_error ? String(j.result || j.subtype) : null,
     stderr: r.stderr,
+    plan,
   });
+}
+
+/** Claude stream-json → final result object (type "result") and latest plan snapshot. */
+export function claudeStream(stdout) {
+  let final = null;
+  let plan = null;
+  for (const line of stdout.split(/\r?\n/)) {
+    if (!line.startsWith('{')) continue;
+    let ev;
+    try { ev = JSON.parse(line); } catch { continue; }
+    if (ev.type === 'result') final = ev;
+    else if (ev.type === 'rate_limit_event') plan = parseClaudeRateLimit(ev) || plan;
+  }
+  // Older CLIs / plain json output: the whole stdout is the result object.
+  return { final: final || lastJsonLine(stdout), plan };
 }
 
 export function ask(agent, opts, cfg) {

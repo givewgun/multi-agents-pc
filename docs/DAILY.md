@@ -34,5 +34,5 @@ tandem dashboard --open                # savings, budget, flow
 2. **Review = Gemini first, Claude last.** `tandem review --agent gemini` on every diff, `--agent claude` only on ones that matter.
 3. **Commit before `--edit`.** Makes the other agent's changes one `git diff` away.
 4. **Weekly look at `tandem stats`.** Gemini share < 50%? You're paying Claude for typing.
-5. **Gemini locked out?** Router switches to Claude for 5h automatically. Keep Claude work small until it refreshes.
+5. **Check `tandem usage` before a big session.** It shows both plans' 5h/weekly windows and reset times. A plan at its limit gets routed around automatically. Claude's limit defaults to 80% so your own sessions keep headroom.
 6. **Not sure the routing fits your work?** Add a task to `src/bench/tasks.js`, run `tandem bench`, change the rule (ADR 0005).

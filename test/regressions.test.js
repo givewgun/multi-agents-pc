@@ -49,16 +49,15 @@ describe('review regressions', () => {
     fs.writeFileSync(ledgerPath(), `null\n42\n"str"\n{"no":"ts"}\n${JSON.stringify(rec)}\n`);
     const recs = readRecords();
     assert.equal(recs.length, 1);
-    const s = summarize(recs, { budgets: { geminiWeeklyCalls: 0 }, subscriptions: {} });
+    const s = summarize(recs, { subscriptions: {} });
     assert.equal(s.byModel.constructor.calls, 1);
-    assert.equal(s.budget.geminiWeek.ratio, 1, 'cap 0 means exhausted');
   });
 
-  it('router honours the Gemini weekly cap and keeps pick when both pools are out', () => {
-    assert.equal(route('write unit tests', { geminiWeek: { ratio: 1 } }).agent, 'claude');
-    const both = route('write unit tests', { geminiWeek: { ratio: 1 }, claudeWeek: { ratio: 1 } });
+  it('router keeps the original pick when both plans are at their limits', () => {
+    const out = { known: true, exhausted: true, fiveHour: { used: 0.99 }, weekly: { used: 0.5 } };
+    const both = route('write unit tests', { claude: out, gemini: out });
     assert.equal(both.agent, 'gemini');
-    assert.match(both.notes.join(' '), /Both/);
+    assert.match(both.notes.join(' '), /Both plans/);
   });
 
   it('bench sandbox runs out of process', () => {

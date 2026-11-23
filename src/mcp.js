@@ -2,7 +2,8 @@
 // Claude Code side: `tandem mcp --expose gemini` → ask_gemini tool.
 // Antigravity side: `tandem mcp --expose claude` → ask_claude tool.
 import { createInterface } from 'node:readline';
-import { callAndLog } from './cli.js';
+import { callAndLog, currentBudget } from './cli.js';
+import { getUsage } from './usage.js';
 import { route } from './router.js';
 import { readRecords, summarize } from './ledger.js';
 
@@ -64,10 +65,10 @@ async function callTool(name, a, expose, cfg) {
   const text = (t, isError = false) => ({ content: [{ type: 'text', text: t }], isError });
   if (name === 'route_task') {
     if (typeof a.task !== 'string' || !a.task) return text('task (string) is required', true);
-    return text(JSON.stringify(route(a.task, summarize(readRecords(), cfg).budget), null, 2));
+    return text(JSON.stringify(route(a.task, await currentBudget(cfg)), null, 2));
   }
   if (name === 'tandem_stats') {
-    const s = summarize(readRecords(), cfg);
+    const s = summarize(readRecords(), cfg, Date.now(), await getUsage(cfg));
     return text(JSON.stringify({ totals: s.totals, savings: s.savings, budget: s.budget }, null, 2));
   }
   const agent = name === 'ask_gemini' ? 'gemini' : name === 'ask_claude' ? 'claude' : null;
@@ -76,7 +77,7 @@ async function callTool(name, a, expose, cfg) {
   let model = a.model;
   let category = null;
   if (agent === 'gemini' && !model) {
-    const pick = route(a.prompt);
+    const pick = route(a.prompt, await currentBudget(cfg));
     category = pick.category;
     model = pick.agent === 'gemini' ? pick.model : 'neon';
   }

@@ -78,23 +78,24 @@ export function route(task, budget = null) {
   pick.alternatives = ranked.slice(1, 3).map(([r]) => ({ category: r.category, agent: r.agent, model: r.model }));
   pick.notes = [];
 
+  // budget = planBudget(...): plan-window usage vs. limits for each agent.
   if (budget) {
-    const warn = budget.warnAt ?? 0.8;
-    const claudeOut = (budget.claudeWeek?.ratio ?? 0) >= 1;
-    const geminiOut = !!budget.geminiLikelyLimited || (budget.gemini5h?.ratio ?? 0) >= 1 || (budget.geminiWeek?.ratio ?? 0) >= 1;
-    if (claudeOut && geminiOut) {
-      pick.notes.push('Both Claude and Gemini budgets are exhausted: keeping the original pick.');
-    } else if (pick.agent === 'claude' && claudeOut) {
-      pick.notes.push(`Claude weekly budget used (${pct(budget.claudeWeek.ratio)}): sending to Gemini Neon High instead.`);
+    const c = budget.claude || {};
+    const g = budget.gemini || {};
+    if (c.exhausted && g.exhausted) {
+      pick.notes.push(`Both plans at their limits (Claude ${windows(c)}, Gemini ${windows(g)}): keeping the original pick.`);
+    } else if (pick.agent === 'claude' && c.exhausted) {
+      pick.notes.push(`Claude plan at its limit (${windows(c)}): sending to Gemini Neon High instead.`);
       Object.assign(pick, { agent: 'gemini', model: 'neon-high' });
-    } else if (pick.agent === 'gemini' && geminiOut) {
-      pick.notes.push('Gemini quota likely exhausted (recent quota error, 5h or weekly cap): falling back to Claude Sonnet.');
+    } else if (pick.agent === 'gemini' && g.exhausted) {
+      pick.notes.push(`Gemini plan at its limit (${windows(g)}${budget.geminiQuotaHitAt ? ', recent quota error' : ''}): falling back to Claude Sonnet.`);
       Object.assign(pick, { agent: 'claude', model: 'sonnet' });
-    } else if (pick.agent === 'claude' && (budget.claudeWeek?.ratio ?? 0) >= warn) {
-      pick.notes.push(`Claude weekly budget at ${pct(budget.claudeWeek.ratio)}: consider Gemini.`);
+    } else if (pick.agent === 'claude' && c.warn) {
+      pick.notes.push(`Claude plan getting full (${windows(c)}): consider Gemini.`);
     }
   }
   return pick;
 }
 
 const pct = (r) => `${Math.round(r * 100)}%`;
+const windows = (s) => (s.known ? `5h ${pct(s.fiveHour?.used ?? 0)}, week ${pct(s.weekly?.used ?? 0)}` : 'usage unknown');

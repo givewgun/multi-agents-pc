@@ -306,47 +306,93 @@
     overflow-wrap: anywhere;
   }
 
-  /* Budget Meters */
-  .budget-list {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
+  /* Plan Usage 2x2 Grid */
+  .plan-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
   }
 
-  .budget-item {
+  .plan-col-heads,
+  .plan-row {
+    display: grid;
+    grid-template-columns: 82px minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .plan-col-head {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    padding: 0 2px;
+  }
+
+  .plan-agent-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .plan-agent-label {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 4px 0;
+  }
+
+  .plan-cell {
     background: var(--surface-2);
     border: 1px solid var(--border);
     border-radius: 10px;
-    padding: 12px;
+    padding: 11px 12px;
     min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
 
-  .budget-row {
+  .plan-cell-win {
+    display: none;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+
+  .plan-cell-top {
     display: flex;
+    flex-wrap: wrap;
     align-items: baseline;
     justify-content: space-between;
-    gap: 8px;
+    gap: 4px 10px;
     min-width: 0;
   }
 
-  .budget-name {
+  .plan-used {
     font-size: 13px;
     font-weight: 600;
+    overflow-wrap: anywhere;
   }
 
-  .budget-figures {
-    font-size: 12px;
+  .plan-limit-txt {
+    font-size: 11px;
     color: var(--muted);
-    text-align: right;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
+  }
+
+  .meter-wrap {
+    position: relative;
+    width: 100%;
   }
 
   .meter-track {
     width: 100%;
-    height: 9px;
+    height: 10px;
     border-radius: 999px;
     background: var(--border);
     overflow: hidden;
@@ -362,10 +408,40 @@
   .meter-fill.amber { background: var(--amber); }
   .meter-fill.red { background: var(--red); }
 
-  .budget-unset {
+  .meter-limit {
+    position: absolute;
+    top: -3px;
+    bottom: -3px;
+    width: 2px;
+    transform: translateX(-1px);
+    background: var(--text);
+    opacity: 0.65;
+    border-radius: 1px;
+    pointer-events: none;
+  }
+
+  .plan-unknown {
+    grid-column: 2 / -1;
+    background: var(--surface-2);
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
     font-size: 12px;
     color: var(--muted);
-    line-height: 1.5;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .plan-row-meta {
+    padding-left: 94px;
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    overflow-wrap: anywhere;
   }
 
   /* Visuals 2-col row */
@@ -596,9 +672,6 @@
     .viz-grid {
       grid-template-columns: 1fr;
     }
-    .budget-list {
-      grid-template-columns: 1fr;
-    }
   }
 
   @media (max-width: 820px) {
@@ -641,6 +714,22 @@
   }
 
   @media (max-width: 680px) {
+    .plan-col-heads {
+      display: none;
+    }
+    .plan-row {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    .plan-unknown {
+      grid-column: auto;
+    }
+    .plan-cell-win {
+      display: block;
+    }
+    .plan-row-meta {
+      padding-left: 0;
+    }
     .model-table thead {
       display: none;
     }
@@ -756,13 +845,13 @@
       </div>
     </section>
 
-    <!-- 3. Budget -->
+    <!-- 3. Plan usage -->
     <section class="card" id="budget-section">
       <div class="card-head">
-        <h2 class="card-title">Budget</h2>
-        <span class="card-note" id="budget-warn-note"></span>
+        <h2 class="card-title">Plan usage</h2>
+        <span class="card-note" id="budget-warn-note">Both plans meter a rolling 5-hour and weekly window. Limits: <code>tandem budget set claude-5h 80%</code></span>
       </div>
-      <div class="budget-list" id="budget-list"></div>
+      <div class="plan-grid" id="budget-list"></div>
     </section>
 
     <!-- 4. Flow Diagram & 5. Daily Chart -->
@@ -942,78 +1031,165 @@
       sv.offloadShareWeek == null ? 'no Claude-equivalent work this week' : 'of Claude-equiv work this week';
   }
 
+  function fmtDurationShort(ms) {
+    if (ms <= 0) return '0s';
+    const totalSec = Math.floor(ms / 1000);
+    const days = Math.floor(totalSec / 86400);
+    const hours = Math.floor((totalSec % 86400) / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
+    if (days > 0) return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+    if (hours > 0) return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+    if (mins > 0) return `${mins}m`;
+    return totalSec > 0 ? `${totalSec}s` : '<1s';
+  }
+
+  function fmtReset(iso) {
+    if (!iso) return null;
+    const ms = Date.parse(iso);
+    if (Number.isNaN(ms)) return null;
+    const diff = ms - Date.now();
+    if (diff <= 0) return 'reset';
+    return `resets in ${fmtDurationShort(diff)}`;
+  }
+
   function renderBudget(data) {
     const b = data.budget || {};
-    const warnAt = b.warnAt ?? 0.8;
-    $('budget-warn-note').textContent = `warn at ${fmtPct(warnAt)}`;
+    const act = data.activity || {};
+    const warnAt = b.warnAt ?? 0.7;
 
-    if (b.geminiLikelyLimited) {
-      const at = b.geminiQuotaHitAt ? fmtRowTime(b.geminiQuotaHitAt) : 'recently';
+    const alerts = [];
+    if (b.claude?.exhausted) {
+      alerts.push("<strong>Claude at tandem's limit</strong> — Claude work is being routed to Gemini.");
+    }
+    if (b.gemini?.exhausted) {
+      const hitNote = b.geminiQuotaHitAt
+        ? ` (quota hit at <span class="num" title="${esc(b.geminiQuotaHitAt)}">${esc(fmtRowTime(b.geminiQuotaHitAt))}</span>)`
+        : '';
+      alerts.push(`<strong>Gemini at tandem's limit</strong> — Gemini work is being routed to Claude${hitNote}.`);
+    }
+    if (alerts.length > 0) {
       quotaBannerEl.hidden = false;
-      quotaBannerEl.innerHTML =
-        `<span><strong>Gemini quota likely limited</strong> — quota error hit at <span class="num" title="${esc(b.geminiQuotaHitAt || '')}">${esc(at)}</span>. Router prefers Claude for 5h.</span>`;
+      quotaBannerEl.innerHTML = `<div>${alerts.join('<br>')}</div>`;
     } else {
       quotaBannerEl.hidden = true;
       quotaBannerEl.innerHTML = '';
     }
 
-    const meters = [
+    const agents = [
       {
-        title: 'Claude 7d (USD)',
-        item: b.claudeWeek || { used: 0, cap: null, ratio: null },
-        usedText: (u) => fmtUsd(u),
-        capText: (c) => fmtUsd(c),
-        cmd: 'tandem budget set claude <usd>',
+        key: 'claude',
+        label: 'Claude',
+        cls: 'agent-claude',
+        unknownHtml: 'Unknown until tandem makes a Claude call — or run <code>tandem usage --refresh-claude</code>',
+        data: b.claude || { known: false },
+        calls5h: act.fiveHour?.claude ?? 0,
+        callsWeek: act.week?.claude ?? 0,
       },
       {
-        title: 'Gemini 5h (calls)',
-        item: b.gemini5h || { used: 0, cap: null, ratio: null },
-        usedText: (u) => `${u} calls`,
-        capText: (c) => `${c} calls`,
-        cmd: 'tandem budget set gemini-5h <n>',
-      },
-      {
-        title: 'Gemini 7d (calls)',
-        item: b.geminiWeek || { used: 0, cap: null, ratio: null },
-        usedText: (u) => `${u} calls`,
-        capText: (c) => `${c} calls`,
-        cmd: 'tandem budget set gemini-week <n>',
+        key: 'gemini',
+        label: 'Gemini',
+        cls: 'agent-gemini',
+        unknownHtml: 'Unknown — is agy installed?',
+        data: b.gemini || { known: false },
+        calls5h: act.fiveHour?.gemini ?? 0,
+        callsWeek: act.week?.gemini ?? 0,
       },
     ];
 
-    $('budget-list').innerHTML = meters
-      .map((m) => {
-        const used = m.item.used ?? 0;
-        const cap = m.item.cap;
-        const ratio = m.item.ratio;
+    const windows = [
+      { key: 'fiveHour', label: '5-hour window' },
+      { key: 'weekly', label: 'Weekly window' },
+    ];
 
-        if (cap == null || ratio == null) {
-          return `
-            <div class="budget-item">
-              <div class="budget-row">
-                <span class="budget-name">${esc(m.title)}</span>
-                <span class="budget-figures num">${esc(m.usedText(used))} used</span>
-              </div>
-              <div class="budget-unset">no budget set — <code>tandem budget set …</code> <span>(${esc(m.cmd)})</span></div>
-            </div>
-          `;
-        }
-
-        const color = ratio >= 1 ? 'red' : ratio >= warnAt ? 'amber' : 'green';
-        const widthPct = Math.max(0, Math.min(100, (ratio || 0) * 100));
+    const renderCell = (agent, winDef) => {
+      const win = agent.data[winDef.key];
+      const limit = agent.data.limits?.[winDef.key];
+      if (!win) {
         return `
-          <div class="budget-item">
-            <div class="budget-row">
-              <span class="budget-name">${esc(m.title)}</span>
-              <span class="budget-figures num">${esc(m.usedText(used))} / ${esc(m.capText(cap))} (${esc(fmtPct(ratio))})</span>
-            </div>
-            <div class="meter-track" role="progressbar" aria-label="${esc(m.title)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(widthPct)}">
-              <div class="meter-fill ${color}" style="width: ${widthPct.toFixed(1)}%"></div>
-            </div>
+          <div class="plan-cell">
+            <div class="plan-cell-win">${esc(winDef.label)}</div>
+            <div class="plan-used val-muted">No reading</div>
           </div>
         `;
-      })
-      .join('');
+      }
+      const used = Number(win.used ?? 0);
+      const widthPct = Math.max(0, Math.min(100, used * 100));
+      const hasLimit = limit != null && !Number.isNaN(Number(limit));
+      const lim = hasLimit ? Number(limit) : null;
+      const color = hasLimit
+        ? (used >= lim ? 'red' : used >= warnAt * lim ? 'amber' : 'green')
+        : (used >= 1 ? 'red' : used >= warnAt ? 'amber' : 'green');
+      const resetTxt = fmtReset(win.resetsAt);
+      const usedLine = `${fmtPct(used)} used${resetTxt ? ` · ${resetTxt}` : ''}`;
+      const limitTxt = hasLimit ? `tandem limit ${fmtPct(lim)}` : '';
+      const limitPct = hasLimit ? Math.max(0, Math.min(100, lim * 100)) : 0;
+
+      return `
+        <div class="plan-cell">
+          <div class="plan-cell-win">${esc(winDef.label)}</div>
+          <div class="plan-cell-top">
+            <span class="plan-used num">${esc(usedLine)}</span>
+            ${limitTxt ? `<span class="plan-limit-txt num">${esc(limitTxt)}</span>` : ''}
+          </div>
+          <div class="meter-wrap">
+            <div class="meter-track" role="progressbar" aria-label="${esc(agent.label)} ${esc(winDef.label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(widthPct)}">
+              <div class="meter-fill ${color}" style="width: ${widthPct.toFixed(1)}%"></div>
+            </div>
+            ${hasLimit ? `<div class="meter-limit" style="left: ${limitPct.toFixed(1)}%" title="${esc(limitTxt)}"></div>` : ''}
+          </div>
+        </div>
+      `;
+    };
+
+    const rowsHtml = agents.map((agent) => {
+      const d = agent.data;
+      const cellsHtml = d.known
+        ? windows.map((w) => renderCell(agent, w)).join('')
+        : `<div class="plan-unknown"><span>${agent.unknownHtml}</span></div>`;
+
+      const metaParts = [];
+      if (d.known && d.source) {
+        const ageMs = d.ageMs != null ? d.ageMs : (d.at ? Math.max(0, Date.now() - Date.parse(d.at)) : null);
+        const ageTxt = ageMs != null && !Number.isNaN(ageMs)
+          ? (ageMs < 1000 ? 'just now' : `${fmtDurationShort(ageMs)} ago`)
+          : null;
+        metaParts.push(`from ${esc(d.source)}${ageTxt ? `, ${esc(ageTxt)}` : ''}`);
+      }
+      metaParts.push(`<span class="num">${agent.calls5h} calls (5h) · ${agent.callsWeek} calls (7d)</span>`);
+
+      if (agent.key === 'gemini' && Array.isArray(d.other)) {
+        const nonZero = [];
+        for (const pool of d.other) {
+          for (const w of (pool.windows || [])) {
+            if (Number(w.used) > 0) {
+              nonZero.push(`${esc(pool.name)} ${esc(w.window)} ${esc(fmtPct(w.used))}`);
+            }
+          }
+        }
+        if (nonZero.length > 0) {
+          metaParts.push(`<span class="num">${nonZero.join(' · ')}</span>`);
+        }
+      }
+
+      return `
+        <div class="plan-agent-group">
+          <div class="plan-row">
+            <div class="plan-agent-label"><span class="agent-tag ${agent.cls}">${esc(agent.label)}</span></div>
+            ${cellsHtml}
+          </div>
+          <div class="plan-row-meta">${metaParts.map((p) => `<span>${p}</span>`).join('')}</div>
+        </div>
+      `;
+    }).join('');
+
+    $('budget-list').innerHTML = `
+      <div class="plan-col-heads">
+        <div class="plan-col-spacer"></div>
+        <div class="plan-col-head">5-hour window</div>
+        <div class="plan-col-head">Weekly window</div>
+      </div>
+      ${rowsHtml}
+    `;
   }
 
   function rectBorderPoint(node, tx, ty, pad) {

@@ -37,13 +37,16 @@ export const DEFAULT_CONFIG = {
     claude: { plan: null, monthlyUsd: null },
     gemini: { plan: 'Google AI Pro', monthlyUsd: null },
   },
+  // Both plans meter usage in a rolling 5-hour window plus a weekly window (fraction used, 0–1,
+  // read from the agents themselves; see src/usage.js). These are the highest fractions tandem
+  // will push each window to before routing work to the other agent. Claude's are lower so the
+  // rest stays free for your own interactive Claude Code sessions.
   budgets: {
-    // Claude API-equivalent USD per rolling 7 days. Subscriptions report this as total_cost_usd.
-    claudeWeeklyUsd: null,
-    // Gemini quota is opaque; cap by call count per rolling 5h / 7d windows.
-    gemini5hCalls: null,
-    geminiWeeklyCalls: null,
-    warnAt: 0.8,
+    claude5h: 0.8,
+    claudeWeek: 0.85,
+    gemini5h: 0.95,
+    geminiWeek: 0.95,
+    warnAt: 0.7,
   },
   defaults: { claudeModel: 'sonnet', geminiModel: 'neon' },
   timeouts: { geminiMs: 15 * 60_000, claudeMs: 15 * 60_000 },

@@ -167,27 +167,25 @@ describe('ledger', () => {
         durationMs: 300,
       },
     ];
-    const cfg = {
-      ...DEFAULT_CONFIG,
-      budgets: { claudeWeeklyUsd: 10, gemini5hCalls: 4, geminiWeeklyCalls: 20, warnAt: 0.8 },
+    const usage = {
+      claude: { at: new Date(now).toISOString(), source: 't', fiveHour: { used: 0.82 }, weekly: { used: 0.2 } },
+      gemini: { at: new Date(now).toISOString(), source: 't', fiveHour: { used: 0.5 }, weekly: { used: 0.1 } },
     };
-
-    const s = summarize(records, cfg, now);
+    const s = summarize(records, DEFAULT_CONFIG, now, usage);
     assert.equal(s.totals.calls, 3);
     assert.equal(s.totals.claude.calls, 2);
     assert.equal(s.totals.gemini.calls, 1);
     assert.equal(s.savings.claudeWeekUsd, 2.5);
     assert.equal(s.savings.offloadedWeekUsd, 1.5);
-    assert.equal(s.budget.claudeWeek.used, 2.5);
-    assert.equal(s.budget.claudeWeek.ratio, 0.25);
-    assert.equal(s.budget.gemini5h.used, 1);
-    assert.equal(s.budget.gemini5h.ratio, 0.25);
-    assert.equal(s.budget.geminiWeek.used, 1);
-    assert.equal(s.budget.geminiWeek.ratio, 0.05);
-    assert.equal(s.budget.geminiLikelyLimited, false);
+    assert.deepEqual(s.activity, { fiveHour: { claude: 0, gemini: 1 }, week: { claude: 1, gemini: 1 } });
+    // default limits: claude 5h 0.8 → 0.82 exhausted; gemini 5h 0.5 of 0.95 with warnAt 0.7 → fine
+    assert.equal(s.budget.claude.exhausted, true);
+    assert.equal(s.budget.gemini.exhausted, false);
+    assert.equal(s.budget.gemini.warn, false);
+    assert.equal(s.budget.claude.limits.fiveHour, 0.8);
   });
 
-  it('summarize returns null ratios without caps and detects geminiLikelyLimited within 5h', () => {
+  it('summarize without usage marks both unknown; a recent quota error still exhausts Gemini', () => {
     const now = Date.parse('2026-11-23T12:00:00.000Z');
     const H = 3600_000;
     const records = [
@@ -205,9 +203,9 @@ describe('ledger', () => {
     ];
 
     const s = summarize(records, DEFAULT_CONFIG, now);
-    assert.equal(s.budget.claudeWeek.ratio, null);
-    assert.equal(s.budget.gemini5h.ratio, null);
-    assert.equal(s.budget.geminiWeek.ratio, null);
-    assert.equal(s.budget.geminiLikelyLimited, true);
+    assert.equal(s.budget.claude.known, false);
+    assert.equal(s.budget.gemini.known, false);
+    assert.equal(s.budget.gemini.exhausted, true);
+    assert.ok(s.budget.geminiQuotaHitAt);
   });
 });

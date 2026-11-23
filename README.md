@@ -7,7 +7,7 @@ If you pay for both Claude and Google AI Pro/Ultra, you're probably using one an
 - **Bridges.** Each agent can call the other headless (`tandem ask gemini|claude`) or as an MCP tool.
 - **Routing.** `tandem route "task"` picks the agent and model with cost-aware rules and spends no tokens. The rules are checked against a benchmark.
 - **Ledger + savings.** Every call is logged with tokens, time and cost. Gemini work is priced at Claude rates, so you can see how much Claude usage you offloaded.
-- **Budgets.** Set weekly caps. When one side runs dry, the router sends work to the other.
+- **Plan-aware budgets.** Both subscriptions meter a rolling 5-hour and weekly window. tandem reads the real usage from each agent: `agy /usage` (free) and Claude's per-call rate-limit event. When a plan nears the limit you set, the router sends work to the other one.
 - **Dashboard.** A local web UI shows who called whom, budget meters, per-model stats and a call timeline.
 - **Benchmark.** `tandem bench` scores models on graded tasks, so routing decisions rest on data.
 - **Project setup.** `tandem init` adds shared `AGENTS.md` rules, a Claude `/gemini` skill, an Antigravity rule and MCP config.
@@ -51,7 +51,8 @@ Inside Claude Code, say *"use gemini for the grunt work"*. The `/gemini` skill a
 | `tandem run "task"` | Route, call, and fall back to the other agent on error/quota |
 | `tandem review [--agent gemini\|claude\|both] [--staged] [--base main]` | Reviews `git diff` (sent in the prompt, so no shell permissions needed) |
 | `tandem log` / `tandem stats` | Call history and totals: tokens, time, cost, savings |
-| `tandem budget set <claude\|gemini-5h\|gemini-week\|warn\|claude-plan\|gemini-plan> <n>` | Budgets and plan prices |
+| `tandem usage [--refresh-claude]` | Each plan's 5h and weekly window: % used, tandem's limit, time to reset |
+| `tandem budget set <claude-5h\|claude-week\|gemini-5h\|gemini-week> 80%` | Highest share of each window tandem may use (defaults: Claude 80% / 85%, Gemini 95% / 95%). `warn`, `claude-plan` / `gemini-plan` (USD per month, for value stats) |
 | `tandem dashboard [--port 4777] [--open]` | Local web UI (binds 127.0.0.1 only) |
 | `tandem bench [--models gemini:flash,claude:haiku] [--tasks id,id] [--repeat n] [--out file.md]` | Benchmark models |
 | `tandem init [dir] [--mcp] [--force]` | Add team files to a project |
@@ -75,7 +76,7 @@ Inside Claude Code, say *"use gemini for the grunt work"*. The `/gemini` skill a
 | feature | Gemini Orchestrator → Claude review | Plan+execute, then judgment |
 | trivial | Gemini Flash Low | Fastest; 100% on short tasks (bench) |
 
-Budget overrides: when the Claude weekly budget is used up, Claude routes go to Gemini Neon High. After a Gemini quota error, Gemini routes go to Claude Sonnet for 5 hours.
+Plan overrides: when Claude's 5h or weekly window reaches tandem's limit, Claude routes go to Gemini Neon High. The default 80% leaves 20% for your own Claude Code sessions. When Gemini's window is full, or after a Gemini quota error, Gemini routes go to Claude Sonnet. Window readings past their reset time count as 0.
 
 ## Benchmark: what the data says
 

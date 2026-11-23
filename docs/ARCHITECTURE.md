@@ -26,6 +26,7 @@ tandem = thin orchestration layer over two *headless agent CLIs*. It owns no mod
 | `src/proc.js` | spawn without shell, timeout + tree kill, `.cmd` shim guard | `run`, `which` |
 | `src/router.js` | weighted regex rules + budget overrides | `RULES`, `route` |
 | `src/ledger.js` | record build, append/read JSONL, cost math, aggregates | `makeRecord`, `appendRecord`, `readRecords`, `summarize`, `claudeEquivalentUsd` |
+| `src/usage.js` | plan-window snapshots (`~/.tandem/usage.json`): Gemini via free `agy /usage`, Claude from each call's `rate_limit_event` | `getUsage`, `storeSnapshot`, `parseAgyUsage`, `parseClaudeRateLimit` |
 | `src/config.js` | defaults ⊕ `~/.tandem/config.json`, aliases, pricing | `loadConfig`, `setConfigValue`, `resolve*Model` |
 | `src/mcp.js` | MCP server, newline JSON-RPC 2.0, tools depend on `--expose` | `serve` |
 | `src/init.js` | copy `templates/` into a project + MCP configs; `--global`: `~/.claude/skills`, `~/.gemini/config/{rules,mcp_config.json}`, `claude mcp add --scope user` | `init`, `initGlobal` |
@@ -38,7 +39,7 @@ tandem = thin orchestration layer over two *headless agent CLIs*. It owns no mod
 
 - **Normalized result** (agents.js `result()`): `{agent, model, ok, status, text, sessionId, usage{input,output,thinking,cacheRead,cacheWrite,total}, costUsd, durationMs, turns, denied[], error, stderr}`. `status ∈ ok|error|quota|auth|timeout|denied|missing`.
 - **Ledger record v1** (ledger.js `makeRecord`): append-only JSONL. Add fields, never rename. Bump `v` on breaking change.
-- **Summary shape** (`summarize`): consumed by the dashboard, MCP `tandem_stats` and the router. Change all three together.
+- **Summary shape** (`summarize`): consumed by the dashboard, MCP `tandem_stats` and the router. Change all three together. `budget` = `planBudget()`: `{warnAt, geminiQuotaHitAt, claude|gemini: {known, at, ageMs, source, status, fiveHour{used,resetsAt}, weekly{…}, other?, limits{fiveHour,weekly}, exhausted, warn}}`.
 - **Router rule**: `{category, agent, model(alias), weight, re, reason}`. `category` names are shared with bench tasks.
 
 ## Agent CLI facts (verified 2026-11-23, agy 1.5.14, claude 2.1.330)
@@ -47,7 +48,8 @@ tandem = thin orchestration layer over two *headless agent CLIs*. It owns no mod
 - `agy --input-format stream-json --output-format stream-json` (no `-p`) reads `{"event":"user","message":{"content":...}}` from stdin, result in the `{"event":"result","result":{...}}` line.
 - agy headless: no `--mode` = edits + commands soft-denied (exit 0, `denied_actions`). `--mode plan` is *not* read-only. `--mode accept-edits` = edits ok, commands still need `permissions.allow` in `~/.gemini/antigravity-cli/settings.json`. Reads outside workspace denied.
 - agy MCP tools in headless need `mcp(<server>/<tool>)` in `permissions.allow`. Antigravity may create an empty `~/.gemini/config/mcp_config.json` (treat as `{}`).
-- `claude -p` reads prompt from stdin. JSON: `{result,is_error,session_id,usage{input_tokens,cache_creation_input_tokens,cache_read_input_tokens,output_tokens},total_cost_usd,num_turns,duration_ms,permission_denials[]}`. ~70k tokens overhead per call.
+- `claude -p` reads prompt from stdin. tandem uses `--output-format stream-json --verbose`: final `{"type":"result",result,is_error,session_id,usage{…},total_cost_usd,num_turns,duration_ms,permission_denials[]}` plus `{"type":"rate_limit_event","rate_limit_info":{status,unifiedWindows:{five_hour,seven_day:{utilization,resetsAt(unix s)}}}}`. ~70k tokens overhead per call. `claude -p /usage` is NOT free (goes to the model).
+- `agy -p /usage --output-format json` (0 tokens): `command.data.groups[{name:"Gemini Models"|"Claude and GPT models"|"Gemini 4 Argon", buckets[{id,window:"5h"|"weekly",remaining_fraction,reset_time}]}]`. Quota is consumed in proportion to token cost.
 
 ## Extending
 
