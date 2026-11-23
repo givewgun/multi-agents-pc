@@ -14,6 +14,23 @@ const HOST = '127.0.0.1';
 const DEFAULT_PORT = 4777;
 const MAX_PORT_OFFSET = 10;
 const UUID_RE = /^[0-9a-f-]{36}$/;
+const LOCAL_HOST_RE = /^(?:127\.0\.0\.1|localhost|\[::1\])(?::\d{1,5})?$/i;
+
+/** Guard against DNS rebinding and cross-origin reads from other local/remote web pages. */
+export function isLocalRequest(headers = {}) {
+  const host = typeof headers.host === 'string' ? headers.host.trim() : '';
+  if (!LOCAL_HOST_RE.test(host)) return false;
+  const origin = typeof headers.origin === 'string' ? headers.origin.trim() : '';
+  if (origin) {
+    try {
+      const u = new URL(origin);
+      if ((u.protocol !== 'http:' && u.protocol !== 'https:') || !LOCAL_HOST_RE.test(u.host)) return false;
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
 
 function openBrowser(url) {
   try {
@@ -120,6 +137,10 @@ function summarizeThreads(records) {
 function createHandler(cfg) {
   return async (req, res) => {
     try {
+      if (!isLocalRequest(req.headers)) {
+        sendJson(res, 403, { error: 'Forbidden' });
+        return;
+      }
       const url = new URL(req.url || '/', `http://${HOST}`);
       if (req.method === 'GET' && url.pathname === '/') {
         const html = readFileSync(INDEX_URL, 'utf8');

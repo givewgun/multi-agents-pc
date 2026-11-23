@@ -1,8 +1,21 @@
 {
   "name": "tandem-agents",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Run Claude Code and Gemini (Antigravity agy) as one team: routing, bridges, MCP, cost ledger, budget dashboard, benchmarks.",
+  "author": "Gun Kaewngarm",
+  "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/givewgun/multi-agents-pc.git"
+  },
+  "homepage": "https://github.com/givewgun/multi-agents-pc#readme",
+  "bugs": {
+    "url": "https://github.com/givewgun/multi-agents-pc/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
     "tandem": "bin/tandem.js"
   },
@@ -11,12 +24,14 @@
     "src/",
     "templates/",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "scripts": {
     "test": "node --test",
     "bench": "node bin/tandem.js bench",
-    "dashboard": "node bin/tandem.js dashboard"
+    "dashboard": "node bin/tandem.js dashboard",
+    "prepublishOnly": "npm test"
   },
   "engines": {
     "node": ">=18.17"
@@ -31,6 +46,5 @@
     "mcp",
     "cost",
     "llm-routing"
-  ],
-  "license": "MIT"
+  ]
 }

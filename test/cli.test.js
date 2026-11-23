@@ -28,6 +28,12 @@ describe('parseArgs', () => {
     assert.deepEqual(res._, ['run', '--not-a-flag', 'pos']);
     assert.deepEqual(res.flags, { edit: true });
   });
+
+  it('parses --version, -v, and -V flags', () => {
+    assert.equal(parseArgs(['--version']).flags.version, true);
+    assert.equal(parseArgs(['-v']).flags.version, true);
+    assert.equal(parseArgs(['-V']).flags.version, true);
+  });
 });
 
 describe('inferCaller', () => {

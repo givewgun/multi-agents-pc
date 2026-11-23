@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { VERSION } from '../src/version.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const binPath = path.resolve(__dirname, '..', 'bin', 'tandem.js');
@@ -60,6 +61,7 @@ describe('mcp server', () => {
     try {
       const initRes = await request(1, 'initialize', { protocolVersion: '2025-11-25' });
       assert.equal(initRes.result.protocolVersion, '2025-11-25');
+      assert.equal(initRes.result.serverInfo.version, VERSION);
 
       notify('notifications/initialized');
 

@@ -7,8 +7,9 @@ import { makeRecord, appendRecord, readRecords, summarize, ledgerPath, planBudge
 import { getUsage, storeSnapshot } from './usage.js';
 import { route, RULES, parsePin } from './router.js';
 import { usd, tok, ms, pct, c, bar, table } from './format.js';
+import { VERSION } from './version.js';
 
-const BOOL = new Set(['edit', 'json', 'force', 'mcp', 'open', 'no-fallback', 'staged', 'help', 'quiet', 'dry-run', 'live', 'global', 'refresh-claude', 'clear']);
+const BOOL = new Set(['edit', 'json', 'force', 'mcp', 'open', 'no-fallback', 'staged', 'help', 'version', 'quiet', 'dry-run', 'live', 'global', 'refresh-claude', 'clear']);
 
 export function parseArgs(argv) {
   const out = { _: [], flags: {} };
@@ -24,6 +25,7 @@ export function parseArgs(argv) {
       else if (BOOL.has(k)) out.flags[k] = true;
       else out.flags[k] = argv[++i];
     } else if (a === '-h') out.flags.help = true;
+    else if (a === '-v' || a === '-V') out.flags.version = true;
     else out._.push(a);
   }
   return out;
@@ -459,16 +461,18 @@ const HELP = `tandem — Claude Code + Gemini (Antigravity) as one team
   tandem dashboard [--port 4777]        local web UI
   tandem bench [--models a,b] [--tasks x,y] [--repeat n]   benchmark models on graded tasks
   tandem init [dir] [--mcp]             add AGENTS.md, CLAUDE.md, skills, rules to a project
-  tandem init --global                  once per machine: /gemini skill, agy rule, MCP in both agents
+  tandem init --global                  once per machine: Antigravity plugin, Claude skills/MCP, Stop hooks
   tandem doctor                         check installs, logins, permissions
   tandem mcp [--expose gemini|claude|both]   MCP server so agents call each other as tools
   tandem config [set <key> <value>|path]
+  tandem --version                      print installed tandem version
 
 Gemini model aliases: flash, flash-low, hydrogen, orchestrator (Neon plans, Hydrogen executes), neon, neon-high, argon (or any agy slug).
 Claude model aliases: haiku, sonnet, opus.`;
 
 export async function main(argv) {
   const { _: [cmd, ...rest], flags } = parseArgs(argv);
+  if (flags.version || cmd === 'version') return void console.log(VERSION);
   if (!cmd || flags.help || cmd === 'help') return void console.log(HELP);
   // Hooks load config themselves: a broken config file must never fail an agent's Stop hook.
   if (cmd === 'hook') return (await import('./hooks.js')).runHook(rest[0]);
@@ -493,7 +497,11 @@ export async function main(argv) {
     }
     case 'doctor': return (await import('./doctor.js')).doctor(cfg, flags);
     case 'mcp': return (await import('./mcp.js')).serve(flags.expose || 'gemini', cfg);
-    case 'dashboard': return (await import('./dashboard/server.js')).startDashboard(Number(flags.port || 4777), cfg, flags);
+    case 'dashboard': {
+      const port = flags.port !== undefined ? Number(flags.port) : 4777;
+      if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error(`Invalid --port "${flags.port}" (use 0–65535)`);
+      return (await import('./dashboard/server.js')).startDashboard(port, cfg, flags);
+    }
     case 'bench': return (await import('./bench/run.js')).bench(flags, cfg);
     default: throw new Error(`Unknown command "${cmd}". Run: tandem help`);
   }

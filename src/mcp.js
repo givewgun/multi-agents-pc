@@ -11,6 +11,7 @@ import { sweep } from './hooks.js';
 import { getUsage } from './usage.js';
 import { route } from './router.js';
 import { readRecords, summarize } from './ledger.js';
+import { VERSION } from './version.js';
 
 // The host that loads this server is the lead: exposing Gemini means Claude Code is talking to the user.
 export const leadFor = (expose) => (expose === 'gemini' ? 'claude' : expose === 'claude' ? 'gemini' : null);
@@ -201,7 +202,7 @@ export function serve(expose, cfg) {
       let result;
       if (method === 'initialize') {
         const v = SUPPORTED.includes(params.protocolVersion) ? params.protocolVersion : SUPPORTED[0];
-        result = { protocolVersion: v, capabilities: { tools: {} }, serverInfo: { name: 'tandem', version: '0.1.0' } };
+        result = { protocolVersion: v, capabilities: { tools: {} }, serverInfo: { name: 'tandem', version: VERSION } };
       } else if (method === 'ping') result = {};
       else if (method === 'tools/list') result = { tools: tools(expose) };
       else if (method === 'tools/call') result = await callTool(params.name, params.arguments || {}, expose, cfg, defaultThread);
