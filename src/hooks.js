@@ -76,22 +76,57 @@ export function geminiUsage(lines, fallbackModel = null) {
   return { usage, model, turns };
 }
 
-function logSession(agent, sessionId, transcriptPath, cwd, cfg, modelHint) {
+const FIELDS = ['input', 'output', 'thinking', 'cacheRead', 'cacheWrite'];
+
+/**
+ * Log what a session used beyond what was already logged. Recomputing the session total (instead
+ * of only reading new bytes) matters: Antigravity writes a step's token counts *after* its Stop
+ * hook fires, so a later run (next turn, or a sweep) must still pick them up.
+ */
+function reconcile(state, agent, sessionId, transcriptPath, cwd, cfg, modelHint) {
   if (!sessionId || !transcriptPath || !existsSync(transcriptPath)) return null;
-  const state = readState();
   state[agent] ||= {};
-  const prev = state[agent][sessionId]?.offset || 0;
-  const { lines, offset } = readNewLines(transcriptPath, prev);
-  state[agent][sessionId] = { offset, at: new Date().toISOString() };
-  writeState(state);
-  const { usage, model, turns } = agent === 'claude' ? claudeUsage(lines) : geminiUsage(lines, modelHint);
-  if (!usage.total) return null;
-  const costUsd = agent === 'claude' ? claudeEquivalentUsd(usage, cfg.pricing, model) : 0;
+  const st = state[agent][sessionId] ||= { path: transcriptPath, cwd: cwd || null, logged: {}, turns: 0 };
+  const { lines } = readNewLines(transcriptPath, 0);
+  const { usage, model, turns } = agent === 'claude' ? claudeUsage(lines) : geminiUsage(lines, modelHint || st.model);
+  const delta = { total: 0 };
+  for (const f of FIELDS) delta[f] = Math.max(0, (usage[f] || 0) - (st.logged[f] || 0));
+  delta.total = delta.input + delta.output;
+  st.at = new Date().toISOString();
+  st.model = model || st.model || null;
+  if (!delta.total) return null;
+  for (const f of FIELDS) st.logged[f] = usage[f] || 0;
+  const newTurns = Math.max(0, turns - (st.turns || 0));
+  st.turns = turns;
+  const costUsd = agent === 'claude' ? claudeEquivalentUsd(delta, cfg.pricing, st.model) : 0;
   const res = {
-    agent, model, ok: true, status: 'ok', text: '', sessionId, usage, costUsd, durationMs: 0, turns,
+    agent, model: st.model, ok: true, status: 'ok', text: '', sessionId, usage: delta, costUsd, durationMs: 0, turns: newTurns,
     denied: [], error: null, plan: null, transcriptPath,
   };
-  return appendRecord(makeRecord(res, { from: 'user', tag: 'interactive', lead: agent, cwd: cwd || process.cwd() }, cfg));
+  return appendRecord(makeRecord(res, { from: 'user', tag: 'interactive', lead: agent, cwd: st.cwd || process.cwd() }, cfg));
+}
+
+/** Catch up sessions seen in the last `withinMs` (late-written tokens). Cheap enough for stats/dashboard. */
+export function sweep(cfg, { withinMs = 24 * 3600_000, now = Date.now() } = {}) {
+  try {
+    const state = readState();
+    let n = 0;
+    for (const agent of ['claude', 'gemini']) {
+      for (const [sid, st] of Object.entries(state[agent] || {})) {
+        if (!st?.path || now - Date.parse(st.at || 0) > withinMs) continue;
+        if (reconcile(state, agent, sid, st.path, st.cwd, cfg)) n++;
+      }
+    }
+    writeState(state);
+    return n;
+  } catch { return 0; }
+}
+
+function logSession(agent, sessionId, transcriptPath, cwd, cfg, modelHint) {
+  const state = readState();
+  const rec = reconcile(state, agent, sessionId, transcriptPath, cwd, cfg, modelHint);
+  writeState(state);
+  return rec;
 }
 
 async function readStdin() {

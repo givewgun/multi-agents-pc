@@ -667,6 +667,601 @@
     display: none !important;
   }
 
+  /* Navigation Tabs */
+  .tabs {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 3px;
+    width: fit-content;
+    box-shadow: var(--shadow);
+  }
+
+  .tab-btn {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease;
+  }
+
+  .tab-btn:hover {
+    color: var(--text);
+  }
+
+  .tab-btn[aria-selected="true"] {
+    background: var(--surface-2);
+    color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+
+  .tab-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+  }
+
+  /* Work Split Card */
+  .ws-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ws-row {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr) 156px;
+    gap: 8px 12px;
+    align-items: center;
+  }
+
+  .ws-agent {
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .ws-bar-col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .ws-track {
+    width: 100%;
+    height: 18px;
+    border-radius: 6px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    display: flex;
+    align-items: stretch;
+  }
+
+  .ws-seg {
+    height: 100%;
+    transition: width 220ms ease;
+    min-width: 0;
+  }
+
+  .ws-seg.claude-direct {
+    background: var(--claude);
+  }
+
+  .ws-seg.claude-delegated {
+    background: repeating-linear-gradient(
+      -45deg,
+      var(--claude-soft),
+      var(--claude-soft) 5px,
+      var(--claude) 5px,
+      var(--claude) 7px
+    );
+    box-shadow: inset 0 0 0 1px var(--claude);
+  }
+
+  .ws-seg.gemini-direct {
+    background: var(--gemini);
+  }
+
+  .ws-seg.gemini-delegated {
+    background: repeating-linear-gradient(
+      -45deg,
+      var(--gemini-soft),
+      var(--gemini-soft) 5px,
+      var(--gemini) 5px,
+      var(--gemini) 7px
+    );
+    box-shadow: inset 0 0 0 1px var(--gemini);
+  }
+
+  .ws-sub {
+    font-size: 11px;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+
+  .ws-totals {
+    text-align: right;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+
+  .ws-totals .ws-usd {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+  }
+
+  .swatch-solid {
+    background: var(--text);
+    opacity: 0.72;
+  }
+
+  .swatch-hatched {
+    background: repeating-linear-gradient(
+      -45deg,
+      var(--surface-2),
+      var(--surface-2) 3px,
+      var(--muted) 3px,
+      var(--muted) 5px
+    );
+    border: 1px solid var(--muted);
+  }
+
+  /* Conversations Tab */
+  .conv-layout {
+    display: grid;
+    grid-template-columns: 310px minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+
+  .conv-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+  }
+
+  .conv-list-card {
+    padding: 12px;
+  }
+
+  .conv-list-card .card-head {
+    margin-bottom: 8px;
+  }
+
+  .conv-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 310px;
+    overflow-y: auto;
+    padding-right: 2px;
+  }
+
+  .conv-item {
+    appearance: none;
+    width: 100%;
+    text-align: left;
+    font-family: var(--font);
+    font-size: 12px;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 8px 10px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    transition: border-color 120ms ease, background 120ms ease;
+  }
+
+  .conv-item:hover {
+    border-color: var(--muted);
+  }
+
+  .conv-item.active {
+    border-color: var(--gemini);
+    box-shadow: inset 0 0 0 1px var(--gemini);
+    background: var(--surface);
+  }
+
+  .conv-item-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .conv-item-title {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  .conv-item-time {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .conv-item-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 6px;
+    font-size: 11px;
+    color: var(--muted);
+    min-width: 0;
+  }
+
+  .conv-item-model {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 140px;
+  }
+
+  .agent-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 650;
+    line-height: 1.4;
+  }
+
+  .agent-badge.claude {
+    background: var(--claude-soft);
+    color: var(--claude);
+  }
+
+  .agent-badge.gemini {
+    background: var(--gemini-soft);
+    color: var(--gemini);
+  }
+
+  .agent-badge.user {
+    background: var(--user-soft);
+    color: var(--user);
+  }
+
+  .lead-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+  }
+
+  .lead-badge.claude {
+    border-color: var(--claude);
+    background: var(--claude-soft);
+    color: var(--claude);
+  }
+
+  .lead-badge.gemini {
+    border-color: var(--gemini);
+    background: var(--gemini-soft);
+    color: var(--gemini);
+  }
+
+  .conv-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+  }
+
+  .conv-placeholder {
+    text-align: center;
+    padding: 40px 18px;
+    color: var(--muted);
+  }
+
+  .conv-thread-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px 12px;
+    padding: 12px 14px;
+  }
+
+  .conv-thread-id {
+    font-size: 14px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+
+  .rec-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .rec-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .rec-head-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    min-width: 0;
+  }
+
+  .rec-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .copy-btn {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 4px 9px;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .copy-btn:hover {
+    border-color: var(--muted);
+  }
+
+  .copy-btn.copied {
+    border-color: var(--green);
+    color: var(--green);
+    background: var(--green-soft);
+  }
+
+  .transcript-missing {
+    background: var(--surface-2);
+    border: 1px dashed var(--border);
+    border-radius: 9px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .resume-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .resume-row code {
+    overflow-wrap: anywhere;
+    word-break: break-all;
+    color: var(--text);
+  }
+
+  /* Chat Bubbles */
+  .chat-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .bubble {
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    border-left-width: 3px;
+    padding: 9px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .bubble-user {
+    background: var(--surface-2);
+    border-left-color: var(--user);
+  }
+
+  .bubble-user.agent-claude-bg {
+    background: var(--claude-soft);
+    border-left-color: var(--claude);
+  }
+
+  .bubble-user.agent-gemini-bg {
+    background: var(--gemini-soft);
+    border-left-color: var(--gemini);
+  }
+
+  .bubble-assistant.agent-claude-bg {
+    background: var(--claude-soft);
+    border-color: var(--claude-soft);
+    border-left-color: var(--claude);
+  }
+
+  .bubble-assistant.agent-gemini-bg {
+    background: var(--gemini-soft);
+    border-color: var(--gemini-soft);
+    border-left-color: var(--gemini);
+  }
+
+  .bubble-assistant.agent-user-bg {
+    background: var(--user-soft);
+    border-left-color: var(--user);
+  }
+
+  .bubble-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4px 10px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .bubble-role {
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .bubble-role.claude { color: var(--claude); }
+  .bubble-role.gemini { color: var(--gemini); }
+
+  .bubble-body {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    font-size: 13px;
+    line-height: 1.5;
+    position: relative;
+  }
+
+  .bubble-body.clamped {
+    max-height: 12em;
+    overflow: hidden;
+  }
+
+  .bubble-body.clamped::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2.5em;
+    background: linear-gradient(transparent, var(--surface));
+    pointer-events: none;
+    opacity: 0.85;
+  }
+
+  .expand-btn {
+    appearance: none;
+    align-self: flex-start;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    font-family: var(--font);
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .expand-btn:hover {
+    color: var(--text);
+    border-color: var(--muted);
+  }
+
+  details.bubble-tool {
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    border-left-width: 3px;
+    background: var(--surface-2);
+    padding: 6px 10px;
+    min-width: 0;
+  }
+
+  details.bubble-tool.agent-claude-bg {
+    border-left-color: var(--claude);
+  }
+
+  details.bubble-tool.agent-gemini-bg {
+    border-left-color: var(--gemini);
+  }
+
+  details.bubble-tool summary {
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    list-style: none;
+    min-width: 0;
+  }
+
+  details.bubble-tool summary::-webkit-details-marker {
+    display: none;
+  }
+
+  details.bubble-tool summary::before {
+    content: "▸";
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+
+  details.bubble-tool[open] summary::before {
+    content: "▾";
+  }
+
+  .tool-label {
+    font-weight: 650;
+    color: var(--text);
+    flex-shrink: 0;
+  }
+
+  .tool-preview {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  .tool-body {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 12px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    color: var(--text);
+  }
+
   /* Responsive breakpoints down to 380px with zero horizontal overflow */
   @media (max-width: 920px) {
     .viz-grid {
@@ -675,6 +1270,12 @@
   }
 
   @media (max-width: 820px) {
+    .conv-layout {
+      grid-template-columns: 1fr;
+    }
+    .conv-list {
+      max-height: 240px;
+    }
     .kpi-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -779,6 +1380,16 @@
     .card {
       padding: 13px 12px;
     }
+    .ws-row {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "agent totals"
+        "bar bar";
+      gap: 6px 10px;
+    }
+    .ws-agent { grid-area: agent; }
+    .ws-totals { grid-area: totals; }
+    .ws-bar-col { grid-area: bar; }
   }
 
   @media (max-width: 420px) {
@@ -811,106 +1422,153 @@
     <!-- Quota Banner -->
     <div class="alert-banner" id="quota-banner" role="alert" hidden></div>
 
-    <!-- Empty State -->
-    <section class="card empty-state" id="empty-state" hidden>
-      <h2>No calls recorded yet</h2>
-      <p id="empty-desc">Run a task with tandem to start tracking Claude and Gemini handoffs, token flow, savings, and budgets.</p>
-      <div class="empty-cmds">
-        <code>tandem run "summarize this repo"</code>
-        <code>tandem ask gemini "review src/"</code>
-      </div>
-    </section>
+    <!-- Navigation Tabs -->
+    <nav class="tabs" role="tablist" aria-label="Dashboard views">
+      <button type="button" class="tab-btn" role="tab" id="tab-btn-overview" data-tab="overview" aria-selected="true" aria-controls="tab-overview">Overview</button>
+      <button type="button" class="tab-btn" role="tab" id="tab-btn-conversations" data-tab="conversations" aria-selected="false" aria-controls="tab-conversations">Conversations</button>
+    </nav>
 
-    <!-- 2. KPI Tiles -->
-    <section class="kpi-grid" id="kpi-section" aria-label="Key metrics">
-      <div class="kpi">
-        <div class="kpi-label">Total calls</div>
-        <div class="kpi-value num" id="kpi-calls">—</div>
-        <div class="kpi-sub num" id="kpi-calls-sub"></div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Claude usage offloaded (7d) <span>· Claude-equivalent, est.</span></div>
-        <div class="kpi-value num accent-green" id="kpi-offloaded">—</div>
-        <div class="kpi-sub num" id="kpi-offloaded-sub"></div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Claude spent (7d)</div>
-        <div class="kpi-value num" id="kpi-claude-spent">—</div>
-        <div class="kpi-sub num" id="kpi-claude-spent-sub"></div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Gemini share of work</div>
-        <div class="kpi-value num" id="kpi-share">—</div>
-        <div class="kpi-sub" id="kpi-share-sub"></div>
-      </div>
-    </section>
-
-    <!-- 3. Plan usage -->
-    <section class="card" id="budget-section">
-      <div class="card-head">
-        <h2 class="card-title">Plan usage</h2>
-        <span class="card-note" id="budget-warn-note">Both plans meter a rolling 5-hour and weekly window. Limits: <code>tandem budget set claude-5h 80%</code></span>
-      </div>
-      <div class="plan-grid" id="budget-list"></div>
-    </section>
-
-    <!-- 4. Flow Diagram & 5. Daily Chart -->
-    <div class="viz-grid" id="viz-section">
-      <section class="card">
-        <div class="card-head">
-          <h2 class="card-title">Call flow</h2>
-          <span class="card-note">calls · tokens (line width scales with calls)</span>
-        </div>
-        <div class="svg-box" id="flow-box"></div>
-        <div class="legend">
-          <span class="legend-item"><span class="swatch" style="background: var(--user)"></span>User</span>
-          <span class="legend-item"><span class="swatch" style="background: var(--claude)"></span>Claude</span>
-          <span class="legend-item"><span class="swatch" style="background: var(--gemini)"></span>Gemini</span>
+    <!-- Tab 1: Overview -->
+    <div class="tab-panel" id="tab-overview" role="tabpanel" aria-labelledby="tab-btn-overview">
+      <!-- Empty State -->
+      <section class="card empty-state" id="empty-state" hidden>
+        <h2>No calls recorded yet</h2>
+        <p id="empty-desc">Run a task with tandem to start tracking Claude and Gemini handoffs, token flow, savings, and budgets.</p>
+        <div class="empty-cmds">
+          <code>tandem run "summarize this repo"</code>
+          <code>tandem ask gemini "review src/"</code>
         </div>
       </section>
 
-      <section class="card">
+      <!-- Work Split (7 days) -->
+      <section class="card" id="work-split-section" aria-label="Who did the work in the last 7 days">
         <div class="card-head">
-          <h2 class="card-title">Daily calls (last 14 days)</h2>
-          <span class="card-note">UTC calendar days</span>
+          <h2 class="card-title">Who did the work (7 days)</h2>
+          <span class="card-note num" id="work-split-total"></span>
         </div>
-        <div class="svg-box" id="daily-box"></div>
+        <div class="ws-rows" id="work-split-rows"></div>
         <div class="legend">
-          <span class="legend-item"><span class="swatch" style="background: var(--gemini)"></span>OK</span>
-          <span class="legend-item"><span class="swatch" style="background: var(--red)"></span>Failed / non-OK</span>
+          <span class="legend-item"><span class="swatch swatch-solid"></span>direct with you</span>
+          <span class="legend-item"><span class="swatch swatch-hatched"></span>asked by the other agent / tandem</span>
         </div>
+      </section>
+
+      <!-- 2. KPI Tiles -->
+      <section class="kpi-grid" id="kpi-section" aria-label="Key metrics">
+        <div class="kpi">
+          <div class="kpi-label">Total calls</div>
+          <div class="kpi-value num" id="kpi-calls">—</div>
+          <div class="kpi-sub num" id="kpi-calls-sub"></div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Delegated to Gemini (Claude-equiv, est.)</div>
+          <div class="kpi-value num accent-green" id="kpi-offloaded">—</div>
+          <div class="kpi-sub num" id="kpi-offloaded-sub"></div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Claude spent (7d)</div>
+          <div class="kpi-value num" id="kpi-claude-spent">—</div>
+          <div class="kpi-sub num" id="kpi-claude-spent-sub"></div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Gemini share of work</div>
+          <div class="kpi-value num" id="kpi-share">—</div>
+          <div class="kpi-sub" id="kpi-share-sub"></div>
+        </div>
+      </section>
+
+      <!-- 3. Plan usage -->
+      <section class="card" id="budget-section">
+        <div class="card-head">
+          <h2 class="card-title">Plan usage</h2>
+          <span class="card-note" id="budget-warn-note">Both plans meter a rolling 5-hour and weekly window. Limits: <code>tandem budget set claude-5h 80%</code></span>
+        </div>
+        <div class="plan-grid" id="budget-list"></div>
+      </section>
+
+      <!-- 4. Flow Diagram & 5. Daily Chart -->
+      <div class="viz-grid" id="viz-section">
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">Call flow</h2>
+            <span class="card-note">calls · tokens (line width scales with calls)</span>
+          </div>
+          <div class="svg-box" id="flow-box"></div>
+          <div class="legend">
+            <span class="legend-item"><span class="swatch" style="background: var(--user)"></span>User</span>
+            <span class="legend-item"><span class="swatch" style="background: var(--claude)"></span>Claude</span>
+            <span class="legend-item"><span class="swatch" style="background: var(--gemini)"></span>Gemini</span>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">Daily calls (last 14 days)</h2>
+            <span class="card-note">UTC calendar days</span>
+          </div>
+          <div class="svg-box" id="daily-box"></div>
+          <div class="legend">
+            <span class="legend-item"><span class="swatch" style="background: var(--gemini)"></span>OK</span>
+            <span class="legend-item"><span class="swatch" style="background: var(--red)"></span>Failed / non-OK</span>
+          </div>
+        </section>
+      </div>
+
+      <!-- 6. By Model Table -->
+      <section class="card" id="model-section">
+        <div class="card-head">
+          <h2 class="card-title">By model</h2>
+          <span class="card-note" id="model-note"></span>
+        </div>
+        <table class="model-table">
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th class="r">Calls</th>
+              <th class="r">OK %</th>
+              <th class="r">Tokens</th>
+              <th class="r">Avg time</th>
+              <th class="r">Claude-equiv</th>
+            </tr>
+          </thead>
+          <tbody id="model-tbody"></tbody>
+        </table>
+      </section>
+
+      <!-- 7. Recent Calls Timeline -->
+      <section class="card" id="recent-section">
+        <div class="card-head">
+          <h2 class="card-title">Recent calls</h2>
+          <span class="card-note">latest 50 · hover (or tap on mobile) failed rows for error details</span>
+        </div>
+        <div class="timeline" id="recent-timeline"></div>
       </section>
     </div>
 
-    <!-- 6. By Model Table -->
-    <section class="card" id="model-section">
-      <div class="card-head">
-        <h2 class="card-title">By model</h2>
-        <span class="card-note" id="model-note"></span>
+    <!-- Tab 2: Conversations -->
+    <div class="tab-panel" id="tab-conversations" role="tabpanel" aria-labelledby="tab-btn-conversations" hidden>
+      <div class="conv-layout">
+        <aside class="conv-sidebar" aria-label="Threads and recent calls">
+          <section class="card conv-list-card">
+            <div class="card-head">
+              <h2 class="card-title">Threads</h2>
+              <span class="card-note num" id="conv-threads-count"></span>
+            </div>
+            <div class="conv-list" id="conv-threads-list"></div>
+          </section>
+          <section class="card conv-list-card">
+            <div class="card-head">
+              <h2 class="card-title">Recent calls</h2>
+              <span class="card-note num" id="conv-calls-count"></span>
+            </div>
+            <div class="conv-list" id="conv-calls-list"></div>
+          </section>
+        </aside>
+        <section class="conv-detail" id="conv-detail" aria-live="polite">
+          <div class="card conv-placeholder">Select a thread or recent call on the left to inspect its transcript.</div>
+        </section>
       </div>
-      <table class="model-table">
-        <thead>
-          <tr>
-            <th>Model</th>
-            <th class="r">Calls</th>
-            <th class="r">OK %</th>
-            <th class="r">Tokens</th>
-            <th class="r">Avg time</th>
-            <th class="r">Claude-equiv</th>
-          </tr>
-        </thead>
-        <tbody id="model-tbody"></tbody>
-      </table>
-    </section>
-
-    <!-- 7. Recent Calls Timeline -->
-    <section class="card" id="recent-section">
-      <div class="card-head">
-        <h2 class="card-title">Recent calls</h2>
-        <span class="card-note">latest 50 · hover (or tap on mobile) failed rows for error details</span>
-      </div>
-      <div class="timeline" id="recent-timeline"></div>
-    </section>
+    </div>
   </div>
 
 <script>
@@ -926,13 +1584,27 @@
   const quotaBannerEl = $('quota-banner');
   const emptyStateEl = $('empty-state');
   const emptyDescEl = $('empty-desc');
+  const workSplitSectionEl = $('work-split-section');
   const kpiSectionEl = $('kpi-section');
   const vizSectionEl = $('viz-section');
   const modelSectionEl = $('model-section');
   const recentSectionEl = $('recent-section');
+  const tabOverviewEl = $('tab-overview');
+  const tabConversationsEl = $('tab-conversations');
+  const tabBtnOverviewEl = $('tab-btn-overview');
+  const tabBtnConversationsEl = $('tab-btn-conversations');
+  const convThreadsListEl = $('conv-threads-list');
+  const convCallsListEl = $('conv-calls-list');
+  const convThreadsCountEl = $('conv-threads-count');
+  const convCallsCountEl = $('conv-calls-count');
+  const convDetailEl = $('conv-detail');
 
   let reqSeq = 0;
+  let convListSeq = 0;
+  let convDetailSeq = 0;
   let lastData = null;
+  let activeTab = 'overview';
+  let selectedConv = null; // { type: 'thread' | 'record', id: string }
   let expandedIds = new Set();
 
   function esc(v) {
@@ -1021,7 +1693,7 @@
 
     $('kpi-offloaded').textContent = fmtUsd(sv.offloadedWeekUsd ?? 0);
     $('kpi-offloaded-sub').textContent =
-      `all time ${fmtUsd(sv.offloadedAllUsd ?? 0)}${sv.baseline ? ` · baseline ${sv.baseline}` : ''}`;
+      `7d · all time ${fmtUsd(sv.offloadedAllUsd ?? 0)}${sv.baseline ? ` · baseline ${sv.baseline}` : ''}`;
 
     $('kpi-claude-spent').textContent = fmtUsd(sv.claudeWeekUsd ?? 0);
     $('kpi-claude-spent-sub').textContent = `all time ${fmtUsd(t.claude?.costUsd ?? 0)}`;
@@ -1519,6 +2191,81 @@
     tl.innerHTML = head + rows;
   }
 
+  function renderWorkSplit(data) {
+    const ws = data.workSplit || {};
+    const agents = [
+      { key: 'claude', label: 'Claude', cls: 'agent-claude' },
+      { key: 'gemini', label: 'Gemini', cls: 'agent-gemini' },
+    ];
+
+    const rows = agents.map((a) => {
+      const side = ws[a.key] || {};
+      const inter = side.interactive || {};
+      const deleg = side.delegated || {};
+      const interTok = Number(inter.tokens || 0);
+      const delegTok = Number(deleg.tokens || 0);
+      const totalTok = interTok + delegTok;
+      const interUsd = Number(inter.claudeEquivUsd || 0);
+      const delegUsd = Number(deleg.claudeEquivUsd || 0);
+      const totalUsd = interUsd + delegUsd;
+      const interCalls = Number(inter.calls || 0);
+      const delegCalls = Number(deleg.calls || 0);
+      const totalCalls = interCalls + delegCalls;
+      return {
+        ...a,
+        interTok, delegTok, totalTok,
+        interUsd, delegUsd, totalUsd,
+        interCalls, delegCalls, totalCalls,
+      };
+    });
+
+    const grandTok = rows.reduce((s, r) => s + r.totalTok, 0);
+    const grandUsd = rows.reduce((s, r) => s + r.totalUsd, 0);
+    const grandCalls = rows.reduce((s, r) => s + r.totalCalls, 0);
+
+    $('work-split-total').textContent = grandCalls === 0
+      ? 'No activity in the last 7 days'
+      : `Total: ${fmtTok(grandTok)} tok · ${fmtUsd(grandUsd)} Claude-equiv`;
+
+    const maxTok = Math.max(0, ...rows.map((r) => r.totalTok));
+    const maxCalls = Math.max(0, ...rows.map((r) => r.totalCalls));
+
+    $('work-split-rows').innerHTML = rows.map((r) => {
+      let directPct = 0;
+      let delegPct = 0;
+      if (maxTok > 0) {
+        directPct = (r.interTok / maxTok) * 100;
+        delegPct = (r.delegTok / maxTok) * 100;
+      } else if (maxCalls > 0) {
+        directPct = (r.interCalls / maxCalls) * 100;
+        delegPct = (r.delegCalls / maxCalls) * 100;
+      }
+
+      const directTip = `${r.label} direct with you: ${fmtTok(r.interTok)} tok (${fmtUsd(r.interUsd)}, ${r.interCalls} calls)`;
+      const delegTip = `${r.label} asked by the other agent / tandem: ${fmtTok(r.delegTok)} tok (${fmtUsd(r.delegUsd)}, ${r.delegCalls} calls)`;
+      const subText = r.totalCalls === 0
+        ? 'no calls in 7d'
+        : `direct: ${fmtTok(r.interTok)} tok (${fmtUsd(r.interUsd)}) · delegated: ${fmtTok(r.delegTok)} tok (${fmtUsd(r.delegUsd)})`;
+
+      return `
+        <div class="ws-row">
+          <div class="ws-agent"><span class="agent-tag ${r.cls}">${esc(r.label)}</span></div>
+          <div class="ws-bar-col">
+            <div class="ws-track" aria-label="${esc(r.label)} work split">
+              ${directPct > 0 ? `<div class="ws-seg ${r.key}-direct" style="width: ${directPct.toFixed(2)}%" title="${esc(directTip)}"></div>` : ''}
+              ${delegPct > 0 ? `<div class="ws-seg ${r.key}-delegated" style="width: ${delegPct.toFixed(2)}%" title="${esc(delegTip)}"></div>` : ''}
+            </div>
+            <div class="ws-sub num">${esc(subText)}</div>
+          </div>
+          <div class="ws-totals num">
+            <span>${esc(fmtTok(r.totalTok))} tok</span>
+            <span class="ws-usd">${esc(fmtUsd(r.totalUsd))} eq.</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
   function render(data) {
     lastData = data;
     const isEmpty = !data.totals || data.totals.calls === 0;
@@ -1530,16 +2277,19 @@
       emptyDescEl.textContent = hideBenchEl.checked
         ? 'No non-benchmark calls recorded yet. Uncheck "hide benchmark runs" if you only ran benchmarks, or run a task with tandem.'
         : 'Run a task with tandem to start tracking Claude and Gemini handoffs, token flow, savings, and budgets.';
+      workSplitSectionEl.hidden = true;
       kpiSectionEl.hidden = true;
       vizSectionEl.hidden = true;
       modelSectionEl.hidden = true;
       recentSectionEl.hidden = true;
     } else {
       emptyStateEl.hidden = true;
+      workSplitSectionEl.hidden = false;
       kpiSectionEl.hidden = false;
       vizSectionEl.hidden = false;
       modelSectionEl.hidden = false;
       recentSectionEl.hidden = false;
+      renderWorkSplit(data);
       renderKpis(data);
       renderFlow(data);
       renderDaily(data);
@@ -1549,6 +2299,405 @@
 
     liveDotEl.className = 'live-dot';
     lastUpdatedEl.textContent = `Updated ${fmtClock(data.generatedAt)}`;
+  }
+
+  /* Conversations Tab — pure DOM builders (no innerHTML with transcript/record data) */
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    return node;
+  }
+
+  function agentBgClass(agent) {
+    if (agent === 'claude') return 'agent-claude-bg';
+    if (agent === 'gemini') return 'agent-gemini-bg';
+    return 'agent-user-bg';
+  }
+
+  function agentLabel(agent) {
+    if (agent === 'claude') return 'Claude';
+    if (agent === 'gemini') return 'Gemini';
+    if (agent === 'user') return 'User';
+    return agent ? String(agent) : 'Unknown';
+  }
+
+  function copyText(text, btn) {
+    const orig = btn.dataset.origLabel || btn.textContent;
+    btn.dataset.origLabel = orig;
+    const done = () => {
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      clearTimeout(btn._copyTimer);
+      btn._copyTimer = setTimeout(() => {
+        btn.textContent = orig;
+        btn.classList.remove('copied');
+      }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+    } else {
+      fallbackCopy(text, done);
+    }
+  }
+
+  function fallbackCopy(text, done) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      done();
+    } catch {
+      // Clipboard unavailable
+    }
+  }
+
+  function updateSelectionHighlight() {
+    for (const item of convThreadsListEl.querySelectorAll('.conv-item')) {
+      const isMatch = selectedConv?.type === 'thread' && item.dataset.threadId === selectedConv.id;
+      item.classList.toggle('active', isMatch);
+    }
+    for (const item of convCallsListEl.querySelectorAll('.conv-item')) {
+      const isMatch = selectedConv?.type === 'record' && item.dataset.recordId === selectedConv.id;
+      item.classList.toggle('active', isMatch);
+    }
+  }
+
+  function renderThreadsList(threads) {
+    convThreadsListEl.replaceChildren();
+    convThreadsCountEl.textContent = `${threads.length}`;
+    if (threads.length === 0) {
+      convThreadsListEl.appendChild(el('div', 'card-note', 'No threaded conversations yet.'));
+      return;
+    }
+    for (const t of threads) {
+      const btn = el('button', 'conv-item');
+      btn.type = 'button';
+      btn.dataset.threadId = t.thread;
+      if (selectedConv?.type === 'thread' && selectedConv.id === t.thread) btn.classList.add('active');
+
+      const top = el('div', 'conv-item-top');
+      const title = el('span', 'conv-item-title mono', t.thread);
+      title.title = t.thread;
+      const time = el('span', 'conv-item-time num', fmtRowTime(t.last));
+      time.title = t.last || '';
+      top.append(title, time);
+
+      const meta = el('div', 'conv-item-meta');
+      meta.appendChild(el('span', 'num', `${t.records} ${t.records === 1 ? 'call' : 'calls'}`));
+      for (const a of (t.agents || [])) {
+        meta.appendChild(el('span', `agent-badge ${a === 'claude' || a === 'gemini' ? a : 'user'}`, a));
+      }
+      for (const lead of (t.leads || [])) {
+        const cls = lead === 'claude' || lead === 'gemini' ? `lead-badge ${lead}` : 'lead-badge';
+        meta.appendChild(el('span', cls, `lead: ${lead}`));
+      }
+
+      btn.append(top, meta);
+      btn.addEventListener('click', () => selectThread(t));
+      convThreadsListEl.appendChild(btn);
+    }
+  }
+
+  function renderCallsList(records) {
+    convCallsListEl.replaceChildren();
+    convCallsCountEl.textContent = `${records.length}`;
+    if (records.length === 0) {
+      convCallsListEl.appendChild(el('div', 'card-note', 'No recent calls yet.'));
+      return;
+    }
+    for (const r of records) {
+      const btn = el('button', 'conv-item');
+      btn.type = 'button';
+      btn.dataset.recordId = r.id || '';
+      if (selectedConv?.type === 'record' && r.id && selectedConv.id === r.id) btn.classList.add('active');
+
+      const top = el('div', 'conv-item-top');
+      const route = el('span', 'tl-route');
+      route.append(
+        el('span', `agent-tag ${agentClass(r.from)}`, r.from || 'user'),
+        el('span', '', '→'),
+        el('span', `agent-tag ${agentClass(r.to)}`, r.to || '—')
+      );
+      const time = el('span', 'conv-item-time num', fmtRowTime(r.ts));
+      time.title = r.ts || '';
+      top.append(route, time);
+
+      const meta = el('div', 'conv-item-meta');
+      meta.appendChild(el('span', `pill ${statusClass(r.status)}`, r.status || 'unknown'));
+      const model = el('span', 'conv-item-model mono', r.model || r.to || '—');
+      model.title = r.model || r.to || '';
+      meta.appendChild(model);
+      meta.appendChild(el('span', 'num', `${fmtTok(r.usage?.total ?? 0)} tok`));
+      if (r.lead) {
+        const cls = r.lead === 'claude' || r.lead === 'gemini' ? `lead-badge ${r.lead}` : 'lead-badge';
+        meta.appendChild(el('span', cls, `lead: ${r.lead}`));
+      }
+
+      btn.append(top, meta);
+      btn.addEventListener('click', () => selectRecord(r));
+      convCallsListEl.appendChild(btn);
+    }
+  }
+
+  function buildMessageBubble(msg, record, transcriptAgent) {
+    const role = msg.role || 'assistant';
+    const text = typeof msg.text === 'string' ? msg.text : '';
+    const targetAgent = transcriptAgent || record.to || 'user';
+
+    if (role === 'tool') {
+      const details = el('details', `bubble-tool ${agentBgClass(targetAgent)}`);
+      const summary = el('summary');
+      summary.appendChild(el('span', 'tool-label', 'Tool'));
+      const firstLine = (text.split(/\r?\n/)[0] || '').trim();
+      const preview = firstLine.length > 90 ? `${firstLine.slice(0, 89)}…` : firstLine;
+      summary.appendChild(el('span', 'tool-preview', preview || '(empty)'));
+      details.append(summary, el('div', 'tool-body', text));
+      return details;
+    }
+
+    const isUser = role === 'user';
+    const bubbleAgent = isUser ? (record.from || 'user') : targetAgent;
+    const bubble = el('div', `bubble ${isUser ? 'bubble-user' : 'bubble-assistant'} ${agentBgClass(bubbleAgent)}`);
+
+    const meta = el('div', 'bubble-meta');
+    const roleCls = bubbleAgent === 'claude' || bubbleAgent === 'gemini' ? `bubble-role ${bubbleAgent}` : 'bubble-role';
+    const roleText = isUser
+      ? (bubbleAgent === 'claude' || bubbleAgent === 'gemini' ? `${agentLabel(bubbleAgent)} (prompt)` : 'User')
+      : agentLabel(targetAgent);
+    const leftMeta = el('span');
+    leftMeta.appendChild(el('span', roleCls, roleText));
+    if (!isUser && msg.model) {
+      leftMeta.appendChild(el('span', 'mono', ` · ${msg.model}`));
+    }
+    meta.appendChild(leftMeta);
+    if (msg.at) {
+      const atEl = el('span', 'num', fmtClock(msg.at));
+      atEl.title = msg.at;
+      meta.appendChild(atEl);
+    }
+
+    const body = el('div', 'bubble-body', text);
+    bubble.append(meta, body);
+
+    const lineCount = text.split(/\r?\n/).length;
+    if (text.length > 500 || lineCount > 10) {
+      body.classList.add('clamped');
+      const moreLabel = `Show more (${text.length.toLocaleString()} chars)`;
+      const toggleBtn = el('button', 'expand-btn', moreLabel);
+      toggleBtn.type = 'button';
+      toggleBtn.addEventListener('click', () => {
+        const clamped = body.classList.toggle('clamped');
+        toggleBtn.textContent = clamped ? moreLabel : 'Show less';
+      });
+      bubble.appendChild(toggleBtn);
+    }
+
+    return bubble;
+  }
+
+  function buildRecordCard(record, transcript) {
+    const card = el('article', 'card rec-card');
+
+    const head = el('div', 'rec-card-head');
+    const meta = el('div', 'rec-head-meta');
+
+    const time = el('span', 'tl-time num', fmtRowTime(record.ts));
+    time.title = record.ts || '';
+    meta.appendChild(time);
+
+    const route = el('span', 'tl-route');
+    route.append(
+      el('span', `agent-tag ${agentClass(record.from)}`, record.from || 'user'),
+      el('span', '', '→'),
+      el('span', `agent-tag ${agentClass(record.to)}`, record.to || '—')
+    );
+    meta.appendChild(route);
+
+    const model = el('span', 'mono', record.model || record.to || '—');
+    meta.appendChild(model);
+
+    if (record.lead) {
+      const cls = record.lead === 'claude' || record.lead === 'gemini' ? `lead-badge ${record.lead}` : 'lead-badge';
+      meta.appendChild(el('span', cls, `lead: ${record.lead}`));
+    }
+
+    const pill = el('span', `pill ${statusClass(record.status)}`, record.status || 'unknown');
+    if (record.error) pill.title = record.error;
+    meta.appendChild(pill);
+
+    meta.appendChild(el('span', 'card-note num', `${fmtTok(record.usage?.total ?? 0)} tok`));
+
+    const actions = el('div', 'rec-head-actions');
+    const resume = transcript?.resume || null;
+    if (resume) {
+      const copyBtn = el('button', 'copy-btn', 'Copy resume');
+      copyBtn.type = 'button';
+      copyBtn.title = resume;
+      copyBtn.addEventListener('click', () => copyText(resume, copyBtn));
+      actions.appendChild(copyBtn);
+    }
+
+    head.append(meta, actions);
+    card.appendChild(head);
+
+    if (!transcript || !transcript.found) {
+      const box = el('div', 'transcript-missing');
+      box.appendChild(el('div', '', 'Transcript not found on this machine'));
+      if (resume) {
+        const row = el('div', 'resume-row');
+        row.appendChild(el('code', '', resume));
+        const copyBtn = el('button', 'copy-btn', 'Copy');
+        copyBtn.type = 'button';
+        copyBtn.title = resume;
+        copyBtn.addEventListener('click', () => copyText(resume, copyBtn));
+        row.appendChild(copyBtn);
+        box.appendChild(row);
+      }
+      card.appendChild(box);
+    } else if (!Array.isArray(transcript.messages) || transcript.messages.length === 0) {
+      card.appendChild(el('div', 'card-note', 'Transcript found, but no messages were parsed.'));
+    } else {
+      const list = el('div', 'chat-messages');
+      for (const msg of transcript.messages) {
+        list.appendChild(buildMessageBubble(msg, record, transcript.agent));
+      }
+      card.appendChild(list);
+    }
+
+    return card;
+  }
+
+  function showDetailMessage(text) {
+    convDetailEl.replaceChildren(el('div', 'card conv-placeholder', text));
+  }
+
+  async function selectRecord(rec) {
+    if (!rec || !rec.id) {
+      showDetailMessage('This ledger record has no ID, so its transcript cannot be loaded.');
+      return;
+    }
+    selectedConv = { type: 'record', id: rec.id };
+    updateSelectionHighlight();
+    const seq = ++convDetailSeq;
+    showDetailMessage('Loading transcript…');
+    try {
+      const res = await fetch(`/api/record/${encodeURIComponent(rec.id)}`, { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (seq !== convDetailSeq) return;
+      if (!res.ok) {
+        showDetailMessage(data.error || `Failed to load record (HTTP ${res.status})`);
+        return;
+      }
+      convDetailEl.replaceChildren(buildRecordCard(data.record, data.transcript));
+    } catch (err) {
+      if (seq !== convDetailSeq) return;
+      showDetailMessage(`Error loading transcript: ${err?.message || err}`);
+    }
+  }
+
+  async function selectThread(threadObj) {
+    selectedConv = { type: 'thread', id: threadObj.thread };
+    updateSelectionHighlight();
+    const seq = ++convDetailSeq;
+    showDetailMessage('Loading thread…');
+    try {
+      const listRes = await fetch(`/api/records?limit=200&thread=${encodeURIComponent(threadObj.thread)}`, { cache: 'no-store' });
+      const listData = await listRes.json().catch(() => []);
+      if (seq !== convDetailSeq) return;
+      if (!listRes.ok || !Array.isArray(listData)) {
+        showDetailMessage(listData?.error || `Failed to load thread (HTTP ${listRes.status})`);
+        return;
+      }
+      const ordered = listData.slice().reverse().sort((a, b) => (Date.parse(a.ts) || 0) - (Date.parse(b.ts) || 0));
+      if (ordered.length === 0) {
+        showDetailMessage('No records found for this thread.');
+        return;
+      }
+
+      const details = await Promise.all(
+        ordered.map(async (r) => {
+          if (!r.id) return { record: r, transcript: { found: false, messages: [], resume: null } };
+          try {
+            const res = await fetch(`/api/record/${encodeURIComponent(r.id)}`, { cache: 'no-store' });
+            if (!res.ok) return { record: r, transcript: { found: false, messages: [], resume: null } };
+            return await res.json();
+          } catch {
+            return { record: r, transcript: { found: false, messages: [], resume: null } };
+          }
+        })
+      );
+      if (seq !== convDetailSeq) return;
+
+      const frag = document.createDocumentFragment();
+      const banner = el('div', 'card conv-thread-banner');
+      const left = el('div', 'rec-head-meta');
+      left.appendChild(el('span', 'conv-thread-id mono', threadObj.thread));
+      left.appendChild(el('span', 'card-note num', `${ordered.length} ${ordered.length === 1 ? 'record' : 'records'}`));
+      for (const a of (threadObj.agents || [])) {
+        left.appendChild(el('span', `agent-badge ${a === 'claude' || a === 'gemini' ? a : 'user'}`, a));
+      }
+      const spanTxt = threadObj.first && threadObj.last && threadObj.first !== threadObj.last
+        ? `${fmtRowTime(threadObj.first)} → ${fmtRowTime(threadObj.last)}`
+        : fmtRowTime(threadObj.last || threadObj.first);
+      banner.append(left, el('span', 'card-note num', spanTxt));
+      frag.appendChild(banner);
+
+      for (const item of details) {
+        frag.appendChild(buildRecordCard(item.record, item.transcript));
+      }
+      convDetailEl.replaceChildren(frag);
+    } catch (err) {
+      if (seq !== convDetailSeq) return;
+      showDetailMessage(`Error loading thread: ${err?.message || err}`);
+    }
+  }
+
+  async function refreshConversationsList() {
+    const seq = ++convListSeq;
+    try {
+      const [threadsRes, callsRes] = await Promise.all([
+        fetch('/api/threads', { cache: 'no-store' }),
+        fetch('/api/records?limit=50', { cache: 'no-store' }),
+      ]);
+      if (!threadsRes.ok || !callsRes.ok) throw new Error('Failed to load conversations');
+      const [threads, records] = await Promise.all([threadsRes.json(), callsRes.json()]);
+      if (seq !== convListSeq) return;
+      renderThreadsList(Array.isArray(threads) ? threads : []);
+      renderCallsList(Array.isArray(records) ? records : []);
+    } catch {
+      if (seq !== convListSeq) return;
+      if (!convThreadsListEl.childElementCount) {
+        convThreadsListEl.replaceChildren(el('div', 'card-note', 'Unable to load threads.'));
+      }
+      if (!convCallsListEl.childElementCount) {
+        convCallsListEl.replaceChildren(el('div', 'card-note', 'Unable to load calls.'));
+      }
+    }
+  }
+
+  function tabFromHash() {
+    return location.hash.toLowerCase().startsWith('#conversations') ? 'conversations' : 'overview';
+  }
+
+  function setTab(tab, updateHash = true) {
+    activeTab = tab === 'conversations' ? 'conversations' : 'overview';
+    const isConv = activeTab === 'conversations';
+    tabBtnOverviewEl.setAttribute('aria-selected', String(!isConv));
+    tabBtnConversationsEl.setAttribute('aria-selected', String(isConv));
+    tabOverviewEl.hidden = isConv;
+    tabConversationsEl.hidden = !isConv;
+    if (updateHash) {
+      const targetHash = `#${activeTab}`;
+      if (location.hash !== targetHash) location.hash = targetHash;
+    }
+    if (isConv) refreshConversationsList();
   }
 
   async function refresh() {
@@ -1567,7 +2716,14 @@
         ? `Updated ${fmtClock(lastData.generatedAt)} · retrying…`
         : `Offline (${err?.message || 'error'})`;
     }
+    if (activeTab === 'conversations') {
+      refreshConversationsList();
+    }
   }
+
+  tabBtnOverviewEl.addEventListener('click', () => setTab('overview', true));
+  tabBtnConversationsEl.addEventListener('click', () => setTab('conversations', true));
+  window.addEventListener('hashchange', () => setTab(tabFromHash(), false));
 
   $('recent-timeline').addEventListener('click', (e) => {
     const item = e.target.closest('.tl-item.has-err');
@@ -1581,6 +2737,7 @@
 
   hideBenchEl.addEventListener('change', refresh);
 
+  setTab(tabFromHash(), false);
   refresh();
   setInterval(refresh, POLL_MS);
 })();

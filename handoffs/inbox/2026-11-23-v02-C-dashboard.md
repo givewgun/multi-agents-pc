@@ -20,3 +20,6 @@ Any other file. No dependencies. No shell commands.
 
 ## Return format
 ≤120 words.
+
+## Tooling note
+Shell commands are denied in this headless run. Use only your file read / file edit tools. Do not stop on a denied action.

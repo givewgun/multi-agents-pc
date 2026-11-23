@@ -155,6 +155,7 @@ async function cmdReview(rest, flags, cfg) {
 }
 
 async function cmdStats(rest, flags, cfg) {
+  (await import('./hooks.js')).sweep(cfg); // pick up token counts agents wrote after their Stop hook
   const s = summarize(readRecords(), cfg, Date.now(), await getUsage(cfg));
   if (flags.json) return void process.stdout.write(JSON.stringify({ ...s, recent: undefined }, null, 2) + '\n');
   const { claude, gemini } = s.totals;
@@ -226,6 +227,7 @@ async function cmdBudget(rest, flags, cfg) {
 }
 
 async function cmdUsage(rest, flags, cfg) {
+  (await import('./hooks.js')).sweep(cfg);
   if (flags['refresh-claude']) {
     // Claude has no free usage endpoint; the cheapest reading is a one-word Haiku call.
     process.stderr.write(c.dim('refreshing Claude plan usage with a tiny Haiku call (~$0.006 of plan usage)â€¦\n'));
