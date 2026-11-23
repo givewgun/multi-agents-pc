@@ -159,7 +159,20 @@ What it shows:
 4. **Orchestrator is overkill for single-shot tasks** (1.1 min average). Use it for multi-file agentic builds.
 5. On these tasks Gemini matched Claude on the "hard" reasoning ones. Hard-debug still routes to Claude, because real bugs carry more context and a wrong answer costs more. Treat that as a judgment call this benchmark doesn't settle.
 
-Limits: one run per cell, small single-shot tasks, and these currently measure *individual models* rather than *solo vs. tandem team* on multi-file engineering work. Run `tandem bench --repeat 3` on your own machine — and PRs adding realistic multi-file / team-vs-solo benchmark tasks are very welcome.
+### Team vs. solo
+
+`tandem bench --team` (scripted hand-offs on 5 hard functions) and `tandem bench --agentic` (a lead agent in a real temp project, free to delegate through tandem's MCP tools, graded by hidden tests). Details in [docs/BENCHMARK.md](docs/BENCHMARK.md#team-vs-solo--2026-11-23).
+
+| setup (agentic, 3 tasks) | hidden tests | partner calls | avg time | Claude $ |
+|---|---|---|---|---|
+| Claude solo | 20/20 | 0 | **23s** | $0.45 |
+| Claude leads, may call Gemini | 20/20 | 0 | 34s | $0.54 |
+| Gemini solo | 20/20 | 0 | 2.1m | **$0** |
+| Gemini leads, may call Claude | 20/20 | 3 | 2.7m | $0.58 |
+
+Honest read: on tasks of this size, pairing added cost and latency and no quality. Claude never chose to delegate. Gemini always asked Claude for a final review that cost more than Claude doing the task alone. tandem's measured value here is **routing**: the same result from Gemini for $0 when you can wait. These tasks don't show whether pairing pays off on large, ambiguous, multi-session work. PRs with harder agentic tasks are welcome.
+
+Limits: one run per cell; run `tandem bench --repeat 3` / `tandem bench --agentic` on your own machine.
 
 ## How savings are computed
 

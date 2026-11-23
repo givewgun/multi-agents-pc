@@ -5,6 +5,17 @@ All notable changes to `tandem-agents` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `tandem bench --team`: solo vs. scripted hand-off strategies on 5 hard hidden-test tasks; separates timeouts from wrong answers and reviewer real fixes from churn.
+- `tandem bench --agentic`: a lead agent works in a temp project, may delegate via tandem MCP, graded by hidden tests; partner calls and cost come from the ledger.
+- Claude bridge: `allow` / `disallow` tool rules and an isolated MCP config (`--strict-mcp-config`).
+
+### Fixed
+- Gemini headless note now lists per-call command grants (it said all shell commands were blocked, so Gemini never ran granted tests).
+- Per-call Gemini permissions extend the user's agy allow/deny rules instead of replacing them.
+
 ## [0.2.1] - 2026-11-23
 
 ### Changed
