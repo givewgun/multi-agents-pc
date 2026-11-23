@@ -2,6 +2,8 @@
 
 **Run Claude Code and Gemini (Google Antigravity) as one team, and see what it saves you.**
 
+Either agent can lead: talk to Claude in Claude Code or to Gemini in Antigravity, and the same rules apply. The lead does what it's best at, brings in the partner for what the partner does better or cheaper, and *always* uses the partner for reviews and second opinions (no self-review). You can override any model choice.
+
 If you pay for both Claude and Google AI Pro/Ultra, you're probably using one and ignoring the other. tandem makes them work together:
 
 - **Bridges.** Each agent can call the other headless (`tandem ask gemini|claude`) or as an MCP tool.
@@ -50,7 +52,11 @@ Inside Claude Code, say *"use gemini for the grunt work"*. The `/gemini` skill a
 | `tandem route "task"` | Agent + model recommendation, budget-aware. No tokens |
 | `tandem run "task"` | Route, call, and fall back to the other agent on error/quota |
 | `tandem review [--agent gemini\|claude\|both] [--staged] [--base main]` | Reviews `git diff` (sent in the prompt, so no shell permissions needed) |
-| `tandem log` / `tandem stats` | Call history and totals: tokens, time, cost, savings |
+| `tandem log` / `tandem stats` | Call history and totals: tokens, time, cost, who did the work |
+| `tandem show [last\|<id>\|thread:<id>]` | Read an exchange from the agent's own transcript, plus the command to reopen it (`claude --resume`, `agy --conversation`) |
+| `tandem prefer <claude\|gemini> <model>` | Your default model per agent |
+| `tandem pin <category> <agent:model>` / `--clear` | Your choice for a kind of work, e.g. `tandem pin review claude:opus`. Beats routing rules |
+| `tandem models [--live]` | Aliases → real model ids, defaults (★), pins |
 | `tandem usage [--refresh-claude]` | Each plan's 5h and weekly window: % used, tandem's limit, time to reset |
 | `tandem budget set <claude-5h\|claude-week\|gemini-5h\|gemini-week> 80%` | Highest share of each window tandem may use (defaults: Claude 80% / 85%, Gemini 95% / 95%). `warn`, `claude-plan` / `gemini-plan` (USD per month, for value stats) |
 | `tandem dashboard [--port 4777] [--open]` | Local web UI (binds 127.0.0.1 only) |

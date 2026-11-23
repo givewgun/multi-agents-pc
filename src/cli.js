@@ -29,7 +29,7 @@ export function parseArgs(argv) {
   return out;
 }
 
-/** "a;b" â†’ ["a","b"] (semicolon: paths and rules can contain commas). */
+/** "a;b" → ["a","b"] (semicolon: paths and rules can contain commas). */
 const list = (v) => (v ? String(v).split(';').map((s) => s.trim()).filter(Boolean) : []);
 
 function parseDuration(s) {
@@ -69,10 +69,10 @@ export async function currentBudget(cfg, records = readRecords()) {
 function printResult(res, rec, flags) {
   if (flags.json) { process.stdout.write(JSON.stringify({ ...res, stderr: undefined, record: rec }, null, 2) + '\n'); return; }
   if (res.text) process.stdout.write(res.text.trimEnd() + '\n');
-  if (res.denied.length) process.stderr.write(c.yellow(`! denied: ${res.denied.join(', ')} â€” use --edit for edits; shell commands need agent allow-rules\n`));
-  if (!res.ok) process.stderr.write(c.red(`âœ— ${res.agent} ${res.status}: ${res.error || ''}\n`));
-  const saved = res.agent === 'gemini' ? ` Â· savedâ‰ˆ${usd(rec.claudeEquivUsd)} vs ${loadConfig().savingsBaseline}` : ` Â· costâ‰ˆ${usd(rec.costUsd)}`;
-  process.stderr.write(c.dim(`[${res.agent} ${res.model} Â· ${res.status} Â· ${ms(res.durationMs)} Â· ${tok(res.usage.total)} tok${saved} Â· session ${res.sessionId}]\n`));
+  if (res.denied.length) process.stderr.write(c.yellow(`! denied: ${res.denied.join(', ')} — use --edit for edits; shell commands need agent allow-rules\n`));
+  if (!res.ok) process.stderr.write(c.red(`✗ ${res.agent} ${res.status}: ${res.error || ''}\n`));
+  const saved = res.agent === 'gemini' ? ` · saved≈${usd(rec.claudeEquivUsd)} vs ${loadConfig().savingsBaseline}` : ` · cost≈${usd(rec.costUsd)}`;
+  process.stderr.write(c.dim(`[${res.agent} ${res.model} · ${res.status} · ${ms(res.durationMs)} · ${tok(res.usage.total)} tok${saved} · session ${res.sessionId}]\n`));
 }
 
 function exitFor(res) { process.exitCode = res.ok ? 0 : res.status === 'denied' ? 3 : 1; }
@@ -107,7 +107,7 @@ async function cmdRun(rest, flags, cfg) {
   if (!prompt) throw new Error('Usage: tandem run "task" [--edit] [--no-fallback]');
   const pick = route(prompt, await currentBudget(cfg), { pins: cfg.routing?.pins, lead: flags.lead });
   const model = flags.model || pick.model;
-  process.stderr.write(c.dim(`â†’ ${pick.agent}/${model} (${pick.category}): ${pick.reason}\n`));
+  process.stderr.write(c.dim(`→ ${pick.agent}/${model} (${pick.category}): ${pick.reason}\n`));
   for (const n of pick.notes) process.stderr.write(c.yellow(`! ${n}\n`));
   const meta = { from: flags.from || 'user', category: pick.category, tag: flags.tag, thread: flags.thread || null, lead: flags.lead || null };
   const opts = { prompt, model, edit: !!flags.edit, cwd: flags.cwd, timeoutMs: parseDuration(flags.timeout) };
@@ -123,7 +123,7 @@ async function cmdRun(rest, flags, cfg) {
 }
 
 const REVIEW_PROMPT = (diff, extra) => `You are reviewing a code change. Report only real problems: bugs, security issues, broken edge cases, missing error handling that matters. No style nits, no praise.
-Format: one bullet per finding, "path:line â€” problem â€” fix". If nothing is wrong, reply exactly "LGTM".
+Format: one bullet per finding, "path:line — problem — fix". If nothing is wrong, reply exactly "LGTM".
 ${extra ? `Context from the author: ${extra}\n` : ''}
 <diff>
 ${diff}
@@ -147,7 +147,7 @@ async function cmdReview(rest, flags, cfg) {
     process.stdout.write(JSON.stringify(runs.map(({ res, rec }) => ({ ...res, stderr: undefined, record: rec })), null, 2) + '\n');
   } else {
     for (const { res, rec } of runs) {
-      if (agents.length > 1) console.log(c.bold(`\nâ”€â”€ ${res.agent} (${res.model}) â”€â”€`));
+      if (agents.length > 1) console.log(c.bold(`\n── ${res.agent} (${res.model}) ──`));
       printResult(res, rec, flags);
     }
   }
@@ -170,8 +170,8 @@ async function cmdStats(rest, flags, cfg) {
   ['model', 'calls', 'ok%', 'tokens', 'claude-equiv']));
   const sv = s.savings;
   console.log('\n' + c.bold('Savings') + c.dim(` (Gemini work priced at ${sv.baseline})`));
-  console.log(`  this week: ${c.green(usd(sv.offloadedWeekUsd))} offloaded Â· Claude spent ${usd(sv.claudeWeekUsd)} Â· Gemini share ${pct(sv.offloadShareWeek)}`);
-  console.log(`  all time:  ${c.green(usd(sv.offloadedAllUsd))} offloaded` + (sv.geminiMonthlyUsd ? ` Â· Gemini plan ${usd(sv.geminiMonthlyUsd)}/mo` : ''));
+  console.log(`  this week: ${c.green(usd(sv.offloadedWeekUsd))} offloaded · Claude spent ${usd(sv.claudeWeekUsd)} · Gemini share ${pct(sv.offloadShareWeek)}`);
+  console.log(`  all time:  ${c.green(usd(sv.offloadedAllUsd))} offloaded` + (sv.geminiMonthlyUsd ? ` · Gemini plan ${usd(sv.geminiMonthlyUsd)}/mo` : ''));
   printBudget(s.budget);
 }
 
@@ -192,9 +192,9 @@ function printBudget(b) {
     }
     for (const [label, w, lim] of [['5h  ', s.fiveHour, s.limits.fiveHour], ['week', s.weekly, s.limits.weekly]]) {
       if (!w) continue;
-      console.log(`  ${name.padEnd(7)}${label}  ${bar(w.used / lim, 20, false)}  ${pct(w.used).padStart(4)} of plan Â· limit ${pct(lim)}  ${resetsIn(w.resetsAt)}`);
+      console.log(`  ${name.padEnd(7)}${label}  ${bar(w.used / lim, 20, false)}  ${pct(w.used).padStart(4)} of plan · limit ${pct(lim)}  ${resetsIn(w.resetsAt)}`);
     }
-    console.log(c.dim(`          from ${s.source}, ${age(s.ageMs)}${s.status && s.status !== 'allowed' ? ` Â· status ${s.status}` : ''}`));
+    console.log(c.dim(`          from ${s.source}, ${age(s.ageMs)}${s.status && s.status !== 'allowed' ? ` · status ${s.status}` : ''}`));
     for (const o of s.other || []) {
       const busy = o.windows.filter((w) => w.used > 0);
       if (busy.length) console.log(c.dim(`          ${o.name}: ${busy.map((w) => `${w.window} ${pct(w.used)}`).join(', ')}`));
@@ -217,7 +217,7 @@ async function cmdBudget(rest, flags, cfg) {
     let v = rest[2];
     if (key.startsWith('budgets.')) {
       const n = v.endsWith('%') ? Number(v.slice(0, -1)) / 100 : Number(v);
-      if (!Number.isFinite(n) || n <= 0 || n > 1) throw new Error('Window limits are fractions of the plan window: 0.01â€“1 or 1%â€“100%');
+      if (!Number.isFinite(n) || n <= 0 || n > 1) throw new Error('Window limits are fractions of the plan window: 0.01–1 or 1%–100%');
       v = String(n);
     }
     console.log(`${key} = ${setConfigValue(key, v)}`);
@@ -230,7 +230,7 @@ async function cmdUsage(rest, flags, cfg) {
   (await import('./hooks.js')).sweep(cfg);
   if (flags['refresh-claude']) {
     // Claude has no free usage endpoint; the cheapest reading is a one-word Haiku call.
-    process.stderr.write(c.dim('refreshing Claude plan usage with a tiny Haiku call (~$0.006 of plan usage)â€¦\n'));
+    process.stderr.write(c.dim('refreshing Claude plan usage with a tiny Haiku call (~$0.006 of plan usage)…\n'));
     await callAndLog('claude', { prompt: 'Reply with: ok', model: 'haiku', maxTurns: 1 }, { from: 'tandem', tag: 'usage-probe' }, cfg);
   }
   const usage = await getUsage(cfg, { refresh: true });
@@ -246,8 +246,8 @@ function cmdLog(rest, flags) {
   if (flags.json) return void process.stdout.write(JSON.stringify(recs, null, 2) + '\n');
   for (const r of recs) {
     const color = r.status === 'ok' ? c.green : r.status === 'denied' ? c.yellow : c.red;
-    const val = r.to === 'gemini' ? c.green(`savedâ‰ˆ${usd(r.claudeEquivUsd)}`) : `costâ‰ˆ${usd(r.costUsd)}`;
-    console.log(`${c.dim(r.ts.replace('T', ' ').slice(0, 19))}  ${r.from} â†’ ${c.bold(r.to)} ${c.cyan(r.model)}  ${color(r.status)}  ${ms(r.durationMs)}  ${tok(r.usage?.total)} tok  ${val}${r.category ? c.dim(`  [${r.category}]`) : ''}`);
+    const val = r.to === 'gemini' ? c.green(`saved≈${usd(r.claudeEquivUsd)}`) : `cost≈${usd(r.costUsd)}`;
+    console.log(`${c.dim(r.ts.replace('T', ' ').slice(0, 19))}  ${r.from} → ${c.bold(r.to)} ${c.cyan(r.model)}  ${color(r.status)}  ${ms(r.durationMs)}  ${tok(r.usage?.total)} tok  ${val}${r.category ? c.dim(`  [${r.category}]`) : ''}`);
   }
 }
 
@@ -455,6 +455,8 @@ Claude model aliases: haiku, sonnet, opus.`;
 export async function main(argv) {
   const { _: [cmd, ...rest], flags } = parseArgs(argv);
   if (!cmd || flags.help || cmd === 'help') return void console.log(HELP);
+  // Hooks load config themselves: a broken config file must never fail an agent's Stop hook.
+  if (cmd === 'hook') return (await import('./hooks.js')).runHook(rest[0]);
   const cfg = loadConfig();
   switch (cmd) {
     case 'ask': return cmdAsk(rest, flags, cfg);
@@ -476,7 +478,6 @@ export async function main(argv) {
     }
     case 'doctor': return (await import('./doctor.js')).doctor(cfg, flags);
     case 'mcp': return (await import('./mcp.js')).serve(flags.expose || 'gemini', cfg);
-    case 'hook': return (await import('./hooks.js')).runHook(rest[0], cfg);
     case 'dashboard': return (await import('./dashboard/server.js')).startDashboard(Number(flags.port || 4777), cfg, flags);
     case 'bench': return (await import('./bench/run.js')).bench(flags, cfg);
     default: throw new Error(`Unknown command "${cmd}". Run: tandem help`);

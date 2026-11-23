@@ -137,9 +137,9 @@ export async function initGlobal(flags = {}) {
   copyTemplate('skill-pair.md', path.join(home, '.claude', 'skills', 'pair', 'SKILL.md'), flags.force, '~/.claude/skills/pair/SKILL.md (Claude /pair skill)');
   try {
     const hookRes = installClaudeHook();
-    console.log(hookRes === 'added'
-      ? 'update  ~/.claude/settings.json (Claude Stop hook)'
-      : 'skip    ~/.claude/settings.json (Claude Stop hook already present)');
+    console.log(hookRes === 'present'
+      ? 'skip    ~/.claude/settings.json (Claude Stop hook already present)'
+      : `update  ~/.claude/settings.json (Claude Stop hook ${hookRes})`);
   } catch (err) {
     console.log(`skip    ~/.claude/settings.json (Claude Stop hook failed: ${err.message})`);
   }

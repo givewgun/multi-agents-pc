@@ -84,8 +84,34 @@ function result(agent, model, fields) {
   };
 }
 
+// A single denied action makes headless agy end its turn with an empty answer (seen 3× while
+// building v0.2). Say so up front, and retry once in the same conversation if it still happens.
+export const headlessNote = (edit) => `[tandem] Headless run: shell commands are unavailable (except read-only git: status, diff, log, show, blame, ls-files). ${edit ? 'Use your file read/edit tools.' : 'This run is read-only: use file read/search tools; edits will be denied.'} If an action is denied, continue without it; never end your turn with an empty answer.\n\n`;
+
+const sumUsage = (a, b) => Object.fromEntries(Object.keys(a).map((k) => [k, (a[k] || 0) + (b[k] || 0)]));
+
 /** Gemini via Antigravity CLI headless mode. No --mode = edits and shell commands soft-denied. */
 export async function askGemini(opts, cfg) {
+  const note = headlessNote(!!opts.edit);
+  const first = await askGeminiOnce({ ...opts, prompt: note + opts.prompt }, cfg);
+  if (first.status !== 'denied' || first.text || !first.sessionId || opts.noRetry) return first;
+  const retry = await askGeminiOnce({
+    ...opts,
+    conversation: first.sessionId,
+    prompt: `Your previous attempt was blocked (denied: ${first.denied.join(', ') || 'an action'}). ${note}Continue the same task and give your final answer.`,
+  }, cfg);
+  return {
+    ...retry,
+    sessionId: retry.sessionId || first.sessionId, // keep the transcript reference if the retry produced no JSON
+    usage: sumUsage(first.usage, retry.usage),
+    durationMs: first.durationMs + retry.durationMs,
+    turns: first.turns + retry.turns,
+    denied: [...new Set([...first.denied, ...retry.denied])],
+    retried: true,
+  };
+}
+
+async function askGeminiOnce(opts, cfg) {
   const { prompt, edit = false, effort, conversation, cwd = process.cwd() } = opts;
   const model = resolveGeminiModel(opts.model || cfg.defaults.geminiModel);
   const timeoutMs = opts.timeoutMs || cfg.timeouts.geminiMs;

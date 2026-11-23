@@ -13,9 +13,17 @@ Just talk. Claude has the `ask_gemini` tool and `/gemini` skill everywhere.
 | "get a second opinion from gemini" | Gemini critiques Claude's plan or diff |
 | "what's the latest X? ask gemini" | Google-grounded answer, no Claude web tokens |
 
-## In Antigravity
+## In Antigravity (Gemini leads)
 
-Build there when the work is big, UI-heavy, or parallel. Gemini can call `ask_claude` (prompts you first; it uses Claude limits) for final review or a stuck bug.
+Same team, roles swapped. Say "work with claude", "ask claude", "/pair", or "get claude's review". Gemini uses the tandem plugin's `ask_claude` tool, which prompts you first because it uses Claude limits, and keeps those calls small. Best when the work is big, UI-heavy, or parallel.
+
+## See what they said to each other
+
+`tandem show last`, `tandem show thread:<id>`, or the dashboard's **Conversations** tab. Every exchange is read from the agent's own transcript, with a "resume" command to reopen it. Your direct work with each agent is counted by Stop hooks, so **Who did the work** shows both sides.
+
+## Pick models yourself
+
+`tandem prefer gemini neon-high`, `tandem pin review claude:opus`, `tandem models`. Or just say it in chat: "ask gemini with neon-high".
 
 ## Terminal
 

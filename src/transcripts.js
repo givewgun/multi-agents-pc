@@ -62,8 +62,8 @@ function extractBlockText(content) {
 }
 
 function stripUserRequestWrapper(text) {
-  const m = /<USER_REQUEST>\s*([\s\S]*?)\s*<\/USER_REQUEST>/.exec(text);
-  return m ? m[1] : text;
+  const m = /<USER_REQUEST>\s*([\s\S]*)<\/USER_REQUEST>/.exec(text);
+  return m ? m[1].trimEnd() : text;
 }
 
 /** Parse Claude Code JSONL transcript lines into normalized messages. Never throws. */

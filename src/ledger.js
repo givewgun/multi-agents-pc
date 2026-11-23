@@ -8,9 +8,20 @@ export function ledgerPath() { return path.join(tandemHome(), 'ledger.jsonl'); }
 
 const H = 3600_000;
 
+/** Pricing key for a model id as transcripts spell it: exact, else without "[1m]"-style or date suffixes, else by family. */
+export function priceKey(model, pricing) {
+  if (!model) return null;
+  if (Object.hasOwn(pricing, model)) return model;
+  const base = String(model).replace(/\[.*\]$/, '').replace(/-\d{8}$/, '');
+  if (Object.hasOwn(pricing, base)) return base;
+  const family = ['opus', 'sonnet', 'haiku'].find((f) => base.includes(f));
+  return family ? Object.keys(pricing).find((k) => k.includes(family)) || null : null;
+}
+
 /** USD a call would cost at a Claude model's list price. Thinking bills as output. */
 export function claudeEquivalentUsd(usage, pricing, model) {
-  const p = pricing[model];
+  const key = priceKey(model, pricing);
+  const p = key ? pricing[key] : null;
   if (!p) return 0;
   const cacheRead = Math.min(usage.cacheRead || 0, usage.input || 0);
   const freshInput = (usage.input || 0) - cacheRead;

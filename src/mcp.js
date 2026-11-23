@@ -3,10 +3,11 @@
 // Antigravity side: `tandem mcp --expose claude` → ask_claude tool.
 import { createInterface } from 'node:readline';
 import { randomBytes } from 'node:crypto';
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { callAndLog, currentBudget } from './cli.js';
-import { tandemHome } from './config.js';
+import { tandemHome, loadConfig } from './config.js';
+import { sweep } from './hooks.js';
 import { getUsage } from './usage.js';
 import { route } from './router.js';
 import { readRecords, summarize } from './ledger.js';
@@ -14,26 +15,54 @@ import { readRecords, summarize } from './ledger.js';
 // The host that loads this server is the lead: exposing Gemini means Claude Code is talking to the user.
 export const leadFor = (expose) => (expose === 'gemini' ? 'claude' : expose === 'claude' ? 'gemini' : null);
 
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+export function normCwd(cwd = process.cwd()) {
+  const resolved = path.resolve(cwd);
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
+export function threadKey(thread, cwd = process.cwd()) {
+  return `${normCwd(cwd)}\u0000${thread}`;
+}
+
+function resolveThread(raw, defaultThread) {
+  const t = typeof raw === 'string' ? raw.trim() : '';
+  return t && !UNSAFE_KEYS.has(t) ? t : defaultThread;
+}
+
 export function threadsPath() { return path.join(tandemHome(), 'threads.json'); }
 
 export function readThreads() {
+  const out = Object.create(null);
   const p = threadsPath();
-  if (!existsSync(p)) return {};
+  if (!existsSync(p)) return out;
   try {
     const v = JSON.parse(readFileSync(p, 'utf8'));
-    return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
-  } catch { return {}; }
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return out;
+    for (const [k, val] of Object.entries(v)) {
+      if (UNSAFE_KEYS.has(k)) continue;
+      if (val && typeof val === 'object' && !Array.isArray(val)) out[k] = val;
+    }
+    return out;
+  } catch { return out; }
 }
 
 export function saveThread(thread, agent, sessionId) {
-  if (!thread || !sessionId || (agent !== 'claude' && agent !== 'gemini')) return;
+  if (typeof thread !== 'string' || !thread || UNSAFE_KEYS.has(thread) || !sessionId || (agent !== 'claude' && agent !== 'gemini')) return;
   const all = readThreads();
-  const entry = Object.hasOwn(all, thread) && all[thread] && typeof all[thread] === 'object' ? { ...all[thread] } : {};
+  const key = threadKey(thread);
+  const entry = Object.hasOwn(all, key) && all[key] && typeof all[key] === 'object' ? { ...all[key] } : {};
   entry[agent] = sessionId;
+  // Sessions live per project folder (Claude stores them by cwd), so remember where this one is.
+  entry.cwd = process.cwd();
   entry.updatedAt = new Date().toISOString();
-  all[thread] = entry;
+  all[key] = entry;
   mkdirSync(tandemHome(), { recursive: true });
-  writeFileSync(threadsPath(), JSON.stringify(all, null, 2) + '\n');
+  const p = threadsPath();
+  const tmp = `${p}.tmp`;
+  writeFileSync(tmp, JSON.stringify(all, null, 2) + '\n');
+  renameSync(tmp, p);
 }
 
 const SUPPORTED = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
@@ -91,14 +120,32 @@ function tools(expose) {
   return list;
 }
 
+// Calls in one thread must run in order: the second reuses the session the first one saves.
+const threadQueues = new Map();
+function inThreadOrder(thread, fn) {
+  const prev = threadQueues.get(thread) || Promise.resolve();
+  const next = prev.catch(() => {}).then(fn);
+  threadQueues.set(thread, next);
+  next.finally(() => { if (threadQueues.get(thread) === next) threadQueues.delete(thread); }).catch(() => {});
+  return next;
+}
+
 async function callTool(name, a, expose, cfg, defaultThread) {
+  if (name !== 'ask_gemini' && name !== 'ask_claude') return callToolNow(name, a, expose, cfg, defaultThread);
+  const thread = resolveThread(a.thread, defaultThread);
+  return inThreadOrder(thread, () => callToolNow(name, a, expose, cfg, defaultThread));
+}
+
+async function callToolNow(name, a, expose, _cfg, defaultThread) {
   const text = (t, isError = false) => ({ content: [{ type: 'text', text: t }], isError });
+  const liveCfg = loadConfig();
   if (name === 'route_task') {
     if (typeof a.task !== 'string' || !a.task) return text('task (string) is required', true);
-    return text(JSON.stringify(route(a.task, await currentBudget(cfg), { lead: leadFor(expose), pins: cfg.routing?.pins }), null, 2));
+    return text(JSON.stringify(route(a.task, await currentBudget(liveCfg), { lead: leadFor(expose), pins: liveCfg.routing?.pins }), null, 2));
   }
   if (name === 'tandem_stats') {
-    const s = summarize(readRecords(), cfg, Date.now(), await getUsage(cfg));
+    sweep(liveCfg);
+    const s = summarize(readRecords(), liveCfg, Date.now(), await getUsage(liveCfg));
     return text(JSON.stringify({ totals: s.totals, savings: s.savings, budget: s.budget }, null, 2));
   }
   const agent = name === 'ask_gemini' ? 'gemini' : name === 'ask_claude' ? 'claude' : null;
@@ -106,19 +153,29 @@ async function callTool(name, a, expose, cfg, defaultThread) {
   if (typeof a.prompt !== 'string' || !a.prompt) return text('prompt (string) is required', true);
   let model = a.model;
   let category = null;
-  if (agent === 'gemini' && !model) {
-    const pick = route(a.prompt, await currentBudget(cfg), { pins: cfg.routing?.pins });
+  if (!model) {
+    const pick = route(a.prompt, await currentBudget(liveCfg), { pins: liveCfg.routing?.pins });
     category = pick.category;
-    model = pick.agent === 'gemini' ? pick.model : 'neon';
+    const fallback = agent === 'gemini' ? liveCfg.defaults.geminiModel : liveCfg.defaults.claudeModel;
+    model = pick.agent === agent ? pick.model : fallback;
   }
-  const thread = typeof a.thread === 'string' && a.thread.trim() ? a.thread.trim() : defaultThread;
+  const thread = resolveThread(a.thread, defaultThread);
+  const curCwd = normCwd();
+  const key = threadKey(thread, curCwd);
   const threads = readThreads();
-  const saved = Object.hasOwn(threads, thread) ? threads[thread] : null;
+  const entry = Object.hasOwn(threads, key) ? threads[key] : null;
+  // Thread names are free text; only reuse a session saved from this same project folder.
+  const saved = entry && (!entry.cwd || (typeof entry.cwd === 'string' && normCwd(entry.cwd) === curCwd)) ? entry : null;
   const conversation = agent === 'gemini' ? (a.conversation_id || saved?.gemini) : undefined;
   const resume = agent === 'claude' ? (a.session_id || saved?.claude) : undefined;
-  const { res, rec } = await callAndLog(agent, {
-    prompt: a.prompt, model, edit: !!a.edit, conversation, resume,
-  }, { from: agent === 'gemini' ? 'claude' : 'gemini', category, tag: 'mcp', lead: leadFor(expose), thread }, cfg);
+  const meta = { from: agent === 'gemini' ? 'claude' : 'gemini', category, tag: 'mcp', lead: leadFor(expose), thread };
+  const opts = { prompt: a.prompt, model, edit: !!a.edit, conversation, resume };
+  let { res, rec } = await callAndLog(agent, opts, meta, liveCfg);
+  // A saved session can disappear (deleted, other machine); retry fresh rather than fail.
+  const reused = (agent === 'claude' && resume && !a.session_id) || (agent === 'gemini' && conversation && !a.conversation_id);
+  if (!res.ok && res.status === 'error' && reused) {
+    ({ res, rec } = await callAndLog(agent, { ...opts, conversation: undefined, resume: undefined }, meta, liveCfg));
+  }
   if (res.ok && res.sessionId) saveThread(thread, agent, res.sessionId);
   const footer = `\n\n[${res.agent} ${res.model} · ${res.status} · ${Math.round(res.durationMs / 1000)}s · ${res.usage.total} tokens · session ${res.sessionId} · thread ${thread}${res.denied.length ? ` · denied: ${res.denied.join(', ')}` : ''}${agent === 'gemini' ? ` · ≈$${rec.claudeEquivUsd.toFixed(4)} of Claude usage offloaded` : ''}]`;
   if (!res.ok) return text(`${res.agent} failed (${res.status}): ${res.error || 'no output'}${footer}`, true);

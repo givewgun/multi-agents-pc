@@ -81,15 +81,16 @@ export function route(task, budget = null, { lead = null, pins = {} } = {}) {
   if (pin) {
     Object.assign(pick, pin, { pinned: true, reason: `Pinned by you: ${pick.category} → ${pin.agent}:${pin.model}.` });
   }
-  applyBudget(pick, budget);
   const rule = RULES.find((r) => r.category === pick.category);
   pick.partnerRequired = !!rule?.partnerRequired;
+  if (lead) pick.lead = lead;
+  // Partner first, budget second: the budget check must look at the agent that will actually run.
+  if (lead && pick.partnerRequired && pick.agent === lead && !pick.pinned) {
+    pick.notes.push(`${pick.category} must come from the partner, not the lead (${lead}).`);
+    Object.assign(pick, { agent: OTHER[lead], model: PARTNER_MODEL[OTHER[lead]] });
+  }
+  applyBudget(pick, budget);
   if (lead) {
-    pick.lead = lead;
-    if (pick.partnerRequired && pick.agent === lead && !pick.pinned) {
-      pick.notes.push(`${pick.category} must come from the partner, not the lead (${lead}).`);
-      Object.assign(pick, { agent: OTHER[lead], model: PARTNER_MODEL[OTHER[lead]] });
-    }
     pick.self = pick.agent === lead;
     if (pick.self) pick.notes.push(`You (${lead}) are the best fit: do it yourself, no call needed.`);
   }
@@ -126,8 +127,10 @@ function applyBudget(pick, budget) {
   if (budget) {
     const c = budget.claude || {};
     const g = budget.gemini || {};
-    if (pick.pinned && ((pick.agent === 'claude' && c.exhausted) || (pick.agent === 'gemini' && g.exhausted))) {
-      pick.notes.push(`Your pin keeps ${pick.agent}, but its plan is at tandem's limit.`);
+    const out = pick.agent === 'claude' ? c.exhausted : g.exhausted;
+    if (out && (pick.pinned || (pick.partnerRequired && pick.lead && pick.agent !== pick.lead))) {
+      // Never send a review back to the lead (self-review) or override the user's pin: warn instead.
+      pick.notes.push(`${pick.pinned ? 'Your pin keeps' : 'A partner review needs'} ${pick.agent}, but its plan is at tandem's limit.`);
     } else if (c.exhausted && g.exhausted) {
       pick.notes.push(`Both plans at their limits (Claude ${windows(c)}, Gemini ${windows(g)}): keeping the original pick.`);
     } else if (pick.agent === 'claude' && c.exhausted) {

@@ -26,6 +26,9 @@ tandem = thin orchestration layer over two *headless agent CLIs*. It owns no mod
 | `src/proc.js` | spawn without shell, timeout + tree kill, `.cmd` shim guard | `run`, `which` |
 | `src/router.js` | weighted regex rules + budget overrides | `RULES`, `route` |
 | `src/ledger.js` | record build, append/read JSONL, cost math, aggregates | `makeRecord`, `appendRecord`, `readRecords`, `summarize`, `claudeEquivalentUsd` |
+| `src/hooks.js` | Stop hooks (`tandem hook claude\|gemini`): reconcile each session's transcript total vs. logged, log the delta as `tag: interactive`; `sweep` catches late-written tokens; installs the Claude hook | `runHook`, `reconcile`, `sweep`, `installClaudeHook`, `hookCommand` |
+| `src/transcripts.js` | read native transcripts for `tandem show` + dashboard (no prompt copies) | `readTranscript`, `parseClaudeTranscript`, `parseGeminiTranscript` |
+| `templates/antigravity-plugin/` | Antigravity side, installed to `~/.gemini/config/plugins/tandem/`: MCP (`ask_claude`), Stop hook, rule, `ask-claude` + `pair` skills | — |
 | `src/usage.js` | plan-window snapshots (`~/.tandem/usage.json`): Gemini via free `agy /usage`, Claude from each call's `rate_limit_event` | `getUsage`, `storeSnapshot`, `parseAgyUsage`, `parseClaudeRateLimit` |
 | `src/config.js` | defaults ⊕ `~/.tandem/config.json`, aliases, pricing | `loadConfig`, `setConfigValue`, `resolve*Model` |
 | `src/mcp.js` | MCP server, newline JSON-RPC 2.0, tools depend on `--expose` | `serve` |
@@ -47,6 +50,9 @@ tandem = thin orchestration layer over two *headless agent CLIs*. It owns no mod
 - `agy -p "<prompt>" --output-format json` → `{conversation_id,status,response,error,duration_seconds,num_turns,usage{input_tokens,output_tokens,thinking_tokens,cache_read_tokens,total_tokens},denied_actions[]}`.
 - `agy --input-format stream-json --output-format stream-json` (no `-p`) reads `{"event":"user","message":{"content":...}}` from stdin, result in the `{"event":"result","result":{...}}` line.
 - agy headless: no `--mode` = edits + commands soft-denied (exit 0, `denied_actions`). `--mode plan` is *not* read-only. `--mode accept-edits` = edits ok, commands still need `permissions.allow` in `~/.gemini/antigravity-cli/settings.json`. Reads outside workspace denied.
+- Plugin MCP servers are named `<plugin>_<server>` → tandem's is `tandem_tandem` (allow-rule `mcp(tandem_tandem/route_task)`). Plugin hooks run in the CLI too. Antigravity Stop hooks must print `{"decision": …}` (anything but `"continue"` lets it stop) and the step's token counts are written *after* the hook fires (hence reconcile + sweep).
+- One denied action makes headless agy end its turn with an empty answer → tandem prepends a headless note and retries once in the same conversation. Orchestrator gave up on denials more than Neon; prefer Neon for headless edits.
+- `~/.tandem/` files: `ledger.jsonl`, `usage.json` (plan snapshots), `hook-state.json` (per-session logged totals, size/mtime), `threads.json` (`<cwd>\0<thread>` → partner session ids), `config.json`.
 - agy MCP tools in headless need `mcp(<server>/<tool>)` in `permissions.allow`. Antigravity may create an empty `~/.gemini/config/mcp_config.json` (treat as `{}`).
 - `claude -p` reads prompt from stdin. tandem uses `--output-format stream-json --verbose`: final `{"type":"result",result,is_error,session_id,usage{…},total_cost_usd,num_turns,duration_ms,permission_denials[]}` plus `{"type":"rate_limit_event","rate_limit_info":{status,unifiedWindows:{five_hour,seven_day:{utilization,resetsAt(unix s)}}}}`. ~70k tokens overhead per call. `claude -p /usage` is NOT free (goes to the model).
 - `agy -p /usage --output-format json` (0 tokens): `command.data.groups[{name:"Gemini Models"|"Claude and GPT models"|"Gemini 4 Argon", buckets[{id,window:"5h"|"weekly",remaining_fraction,reset_time}]}]`. Quota is consumed in proportion to token cost.
