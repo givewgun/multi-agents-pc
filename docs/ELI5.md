@@ -48,7 +48,7 @@ Restart Claude Code and Antigravity. Done.
 
 ## What do I actually do every day?
 
-Just chat normally in **Claude Code** or **Antigravity**:
+Delegation is **opt-in** — each agent works alone until you ask. Just chat normally in **Claude Code** or **Antigravity**:
 
 | What you want | What you say in chat |
 |---|---|
@@ -57,6 +57,7 @@ Just chat normally in **Claude Code** or **Antigravity**:
 | Offload tedious work | *"Use Gemini for the tests and boilerplate"* |
 | Save context on big repos | *"Ask Gemini to map this repo and summarize it"* |
 | Work as a pair | *"/pair"* |
+| Let the lead delegate by judgment | *"use tandem freely"* (this task) or *"/tandem free"* (every prompt; *"/tandem ask"* to reset, *"/tandem solo"* to block all calls) |
 
 Or from your terminal (only 4 commands worth remembering):
 
@@ -72,7 +73,7 @@ tandem dashboard --open           # local UI: call flow, budgets & chats
 ## Wait… (quick FAQ)
 
 - **Will this cost me extra money?** No. It drives the `claude` and `agy` CLIs using the subscriptions you already have — no API keys.
-- **Will the other agent randomly wreck my code?** No. Delegated calls are **read-only by default**. An agent can only edit files if you explicitly pass `--edit`, and shell commands stay blocked.
+- **Will the other agent randomly wreck my code?** No. Delegated calls are **read-only by default**. An agent can only edit files if you explicitly pass `--edit`, and shell commands stay blocked by default (unless you opt in via `allowCommands`).
 - **Can I override what tandem picks?** Yes: `tandem prefer gemini neon-high` sets your default, and `tandem pin review claude:opus` locks any category to your favorite model.
 - **How do I see what they said to each other?** Run `tandem show last` or open `tandem dashboard --open` → **Conversations** tab. Nothing leaves your machine.
 

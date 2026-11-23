@@ -2,13 +2,13 @@
 name: ask-claude
 description: >-
   Call Claude (Claude Code) via tandem MCP for code review, plan critique, hard debugging,
-  architecture decisions, or a second opinion. Use only when the user asks: "ask claude",
+  architecture decisions, or a second opinion. Use only when the user asks: "/ask-claude", "ask claude",
   "claude review", "second opinion from claude", or "use tandem freely". Never on your own initiative.
 ---
 
 # Ask Claude (partner)
 
-0. **Asked?** Only when the user asked (see description); "use tandem freely" covers the rest of that task, a "tandem mode: free" note every prompt. "solo mode is on" → do it yourself.
+0. **Asked?** Only when the user asked (see description); "use tandem freely" covers the rest of that task, a "tandem mode: free" system message (injected when the mode changes; persists in chat) covers every prompt. "solo mode is on" → do it yourself.
 1. **Worth a Claude call?** Claude's plan window is scarcer (~70k token overhead per headless call).
    - **Call Claude for:** final diff review, plan critique, bugs stuck after 2 attempts, high-stakes architecture decisions.
    - **Do it yourself for:** reading many files, web research, boilerplate, tests, UI. Classify the task yourself and check `route_task` with that `category` (`self: true` → do it yourself).

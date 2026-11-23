@@ -76,9 +76,9 @@ Restart Claude Code and Antigravity afterwards.
 <details>
 <summary>What <code>tandem init --global</code> touches on your machine</summary>
 
-- Installs the Antigravity plugin at `~/.gemini/config/plugins/tandem/` (`ask_claude` MCP server, Stop hook, team rule, `/ask-claude` & `/pair` skills) and migrates any v0.1 loose rule/MCP entries.
-- Installs Claude Code skills at `~/.claude/skills/gemini/SKILL.md` and `~/.claude/skills/pair/SKILL.md`.
-- Adds a Stop hook to `~/.claude/settings.json` (creates a one-time `~/.claude/settings.json.bak-tandem` backup first).
+- Installs the Antigravity plugin at `~/.gemini/config/plugins/tandem/` (`ask_claude` MCP server, `Stop` + `PreInvocation` hooks, team rule, `/ask-claude`, `/pair` & `/tandem` skills) and migrates any v0.1 loose rule/MCP entries.
+- Installs Claude Code skills at `~/.claude/skills/{gemini,pair,tandem}/SKILL.md`.
+- Adds `Stop` and `UserPromptSubmit` hooks to `~/.claude/settings.json` (creates a one-time `~/.claude/settings.json.bak-tandem` backup first).
 - Registers the user-scope `tandem` MCP server (`ask_gemini`) in Claude Code via `claude mcp add --scope user`.
 
 </details>
@@ -100,10 +100,10 @@ Delegation is **opt-in**: each agent works alone until you ask. Inside **Claude 
 
 | Command | What it does |
 |---|---|
-| `tandem ask <gemini\|claude> "prompt"` | One call. `--model`, `--edit`, `--file`, `--continue <id>`, `--thread <id>`, `--json`, `--timeout 15m` |
+| `tandem ask <gemini\|claude> "prompt"` | One call. `--model`, `--edit`, `--file`, `--continue <id>`, `--thread <id>`, `--lead a`, `--category <c>`, `--json`, `--timeout 15m` |
 | `tandem route "task"` | Agent + model recommendation, budget-aware. Spends no tokens (`--lead claude\|gemini`, `--category <c>`) |
 | `tandem mode [ask\|free\|solo] [--for 5h]` | Delegation mode for both apps: `ask` only when you ask (default), `free` every prompt counts as "use tandem freely" (per-prompt hooks), `solo` blocks every call between agents. `/tandem <mode>` inside either app. `tandem solo on\|off` is shorthand |
-| `tandem run "task"` | Route, call, and fall back to the other agent on error/quota |
+| `tandem run "task"` | Route, call, and fall back to the other agent on error/quota (`--thread <id>`, `--lead a`, `--category <c>`) |
 | `tandem review [--agent gemini\|claude\|both] [--staged] [--base main]` | Reviews `git diff` (sent in the prompt, so no shell permissions needed) |
 | `tandem show [last\|<id>\|thread:<id>]` | Read an exchange from the agent's own transcript, plus the resume command (`claude --resume`, `agy --conversation`) |
 | `tandem prefer [claude\|gemini <model>]` | View or set your default model per agent |
@@ -113,10 +113,11 @@ Delegation is **opt-in**: each agent works alone until you ask. Inside **Claude 
 | `tandem usage [--refresh-claude]` | Each plan's 5h and weekly window: % used, tandem's limit, time to reset |
 | `tandem budget set <key> <value>` | Set window caps (`claude-5h`, `claude-week`, `gemini-5h`, `gemini-week` as e.g. `80%`), `warn`, `claude-plan`, `gemini-plan` |
 | `tandem dashboard [--port 4777] [--open]` | Local web UI (binds `127.0.0.1` only) |
-| `tandem bench [--models ...] [--tasks ...] [--repeat n] [--out file.md]` | Benchmark models on graded coding tasks |
+| `tandem bench [--models ...] [--tasks ...] [--repeat n] [--out file.md]` | Benchmark models on graded coding tasks; `--team` (scripted hand-offs) and `--agentic` (lead in a temp repo, hidden tests) |
 | `tandem init [dir] [--mcp] [--force]` | Add team files to a project |
-| `tandem init --global [--force]` | One-time per-machine setup: Antigravity plugin, Claude skills & MCP, Stop hooks |
+| `tandem init --global [--force]` | One-time per-machine setup: Antigravity plugin, Claude skills & MCP, Stop + per-prompt hooks |
 | `tandem mcp [--expose gemini\|claude\|both]` | MCP stdio server |
+| `tandem config [set <key> <value>\|path]` | Inspect or update `~/.tandem/config.json` |
 | `tandem doctor [--live]` | Check installs, sign-ins, permissions |
 | `tandem --version` | Print installed tandem version |
 

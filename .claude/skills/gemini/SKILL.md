@@ -14,9 +14,9 @@ description: Delegate a task to Gemini (Google Antigravity agy CLI) to save Clau
    - `neon`: default. Reading/summarizing large inputs, reviews, second opinions, reasoning
    - `orchestrator`: multi-file features/fixes only (slow on single-shot tasks)
 4. **Self-contained prompt**: goal, files in scope, constraints, return format ("<300 words", "JSON", "file:line bullets"). Gemini cannot see this conversation.
-5. **Run** (from the project root; run in background if >2 min):
+5. **Call `ask_gemini`** via MCP (pass `category`, a shared `thread: "<short-slug>"` across related calls, and `edit: true` only after a commit). CLI fallback if MCP is unavailable (from project root; background if >2 min):
    ```
-   tandem ask gemini "<prompt>" --model <alias> [--edit] [--continue <session>]
+   tandem ask gemini "<prompt>" --model <alias> [--category <c>] [--edit] [--continue <session>]
    tandem review --agent gemini          # review current git diff
    ```
    Default is read-only: edits and shell commands are denied (tandem prints `denied:`). Commit before `--edit`.

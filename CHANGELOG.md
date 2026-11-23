@@ -5,7 +5,9 @@ All notable changes to `tandem-agents` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.0] - 2026-11-23
+
+**Upgrading:** run `tandem init --global --force` once, then restart Claude Code and Antigravity. This installs the per-prompt hooks and the `/tandem` skill, and updates the skills and rules to opt-in delegation. It overwrites tandem's own skill/rule files, so re-apply any local edits you made to them.
 
 ### Added
 - `tandem mode [ask|free|solo] [--for 5h]`, shared by both apps, and a `/tandem` skill to switch it from inside Claude Code or Antigravity.
@@ -22,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - MCP `ask_*` without `model` now routes with the lead, so partner-only categories (review) pick the right model.
+- Mode safety: the `/tandem` skill can't be invoked by Claude on its own (`disable-model-invocation`), partner runs (`TANDEM_MANAGED`) can't change the mode, and `--for` rejects `0`, empty, invalid or >1 year values instead of silently meaning "forever".
+- `installClaudeHook` rewrites a stale tandem hook even when a current one follows it.
+- Tests seed a usage snapshot, so they never spawn the real `agy /usage` (flaky timeouts, ~3s suite).
 
 ## [0.3.0] - 2026-11-23
 
