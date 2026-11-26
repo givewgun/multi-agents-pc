@@ -5,7 +5,9 @@ All notable changes to `tandem-agents` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.0] - 2026-11-26
+
+**Upgrading:** `npm i -g tandem-agents@latest`, then restart Claude Code and Antigravity so the MCP server reloads. To keep a partner conversation across calls, pass the same `thread` (the `/gemini` and `/pair` skills already do).
 
 ### Added
 - MCP response footer shows reused context size and cache percentage (e.g. `resumed: 122k input · 92% cached`; input summed over the call's agent steps) when resuming a partner session, and `fresh session` when unthreaded.
