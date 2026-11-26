@@ -5,6 +5,14 @@ All notable changes to `tandem-agents` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- MCP response footer shows reused context size and cache percentage (e.g. `resumed: 122k input · 92% cached`; input summed over the call's agent steps) when resuming a partner session, and `fresh session` when unthreaded.
+
+### Changed
+- MCP `ask_gemini` / `ask_claude` calls without an explicit `thread` now start a fresh partner session instead of sharing a per-server default thread (no `threads.json` read/write, ledger `thread` is `null`, unthreaded calls can run in parallel).
+
 ## [0.4.0] - 2026-11-23
 
 **Upgrading:** run `tandem init --global --force` once, then restart Claude Code and Antigravity. This installs the per-prompt hooks and the `/tandem` skill, and updates the skills and rules to opt-in delegation. It overwrites tandem's own skill/rule files, so re-apply any local edits you made to them.

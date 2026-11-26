@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { VERSION } from '../src/version.js';
-import { saveThread, readThreads, threadKey } from '../src/mcp.js';
+import { saveThread, readThreads, threadKey, explicitThread, reuseNote } from '../src/mcp.js';
 import { seedUsage } from './_usage-seed.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -201,14 +201,48 @@ describe('mcp server', () => {
 
     try {
       await req(1, 'initialize', { protocolVersion: '2025-11-25', capabilities: { roots: {} } });
-      await req(2, 'tools/call', { name: 'ask_claude', arguments: { prompt: 'hello', model: 'haiku' } });
+      const freshRes = await req(2, 'tools/call', { name: 'ask_claude', arguments: { prompt: 'hello', model: 'haiku' } });
       assert.equal(rootsRequested, true);
       const ledgerLines = fs.readFileSync(path.join(tmpDir, 'ledger.jsonl'), 'utf8').trim().split('\n');
       const rec = JSON.parse(ledgerLines.at(-1));
       assert.equal(rec.project, 'my-project');
+      assert.equal(rec.thread, null);
+      assert.equal(fs.existsSync(path.join(tmpDir, 'threads.json')), false);
+      assert.match(freshRes.result.content[0].text, /fresh session/);
+      assert.doesNotMatch(freshRes.result.content[0].text, /thread mcp-/);
+
+      const threadedRes = await req(3, 'tools/call', { name: 'ask_claude', arguments: { prompt: 'hello', model: 'haiku', thread: 'review-1' } });
+      const ledgerLines2 = fs.readFileSync(path.join(tmpDir, 'ledger.jsonl'), 'utf8').trim().split('\n');
+      const rec2 = JSON.parse(ledgerLines2.at(-1));
+      assert.equal(rec2.thread, 'review-1');
+      assert.match(threadedRes.result.content[0].text, /thread review-1/);
     } finally {
       child.kill();
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
+  });
+
+  it('explicitThread accepts safe non-empty strings and rejects empty/unsafe/non-strings', () => {
+    assert.equal(explicitThread(undefined), null);
+    assert.equal(explicitThread(''), null);
+    assert.equal(explicitThread('  '), null);
+    assert.equal(explicitThread('__proto__'), null);
+    assert.equal(explicitThread('constructor'), null);
+    assert.equal(explicitThread('prototype'), null);
+    assert.equal(explicitThread(null), null);
+    assert.equal(explicitThread(123), null);
+    assert.equal(explicitThread({}), null);
+    assert.equal(explicitThread(' slug '), 'slug');
+    assert.equal(explicitThread('review-1'), 'review-1');
+  });
+
+  it('reuseNote formats reused context and cache percentage per agent semantics', () => {
+    assert.equal(reuseNote('claude', { input: 122000, cacheRead: 112000 }, false), '');
+    assert.equal(reuseNote('claude', { input: 122000, cacheRead: 112000 }, true), 'resumed: 122k input · 92% cached');
+    assert.equal(reuseNote('gemini', { input: 181000, cacheRead: 835000 }, true), 'resumed: 1016k input · 82% cached');
+    assert.equal(reuseNote('claude', { input: 600, cacheRead: 300 }, true), 'resumed: 600 input · 50% cached');
+    assert.equal(reuseNote('claude', { input: 0, cacheRead: 0 }, true), '');
+    assert.equal(reuseNote('gemini', { input: 0, cacheRead: 0 }, true), '');
+    assert.equal(reuseNote('claude', null, true), '');
   });
 });

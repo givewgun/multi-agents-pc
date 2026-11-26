@@ -2,7 +2,6 @@
 // Claude Code side: `tandem mcp --expose gemini` → ask_gemini tool.
 // Antigravity side: `tandem mcp --expose claude` → ask_claude tool.
 import { createInterface } from 'node:readline';
-import { randomBytes } from 'node:crypto';
 import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,9 +28,21 @@ export function threadKey(thread, cwd = process.cwd()) {
   return `${normCwd(cwd)}\u0000${thread}`;
 }
 
-function resolveThread(raw, defaultThread) {
+export function explicitThread(raw) {
   const t = typeof raw === 'string' ? raw.trim() : '';
-  return t && !UNSAFE_KEYS.has(t) ? t : defaultThread;
+  return t && !UNSAFE_KEYS.has(t) ? t : null;
+}
+
+export function reuseNote(agent, usage, reused) {
+  if (!reused || !usage) return '';
+  const input = Math.max(0, Number(usage.input) || 0);
+  const cacheRead = Math.max(0, Number(usage.cacheRead) || 0);
+  // Claude's normalized usage.input already includes cacheRead; Gemini's excludes it.
+  const ctx = agent === 'claude' ? input : input + cacheRead;
+  if (!(ctx > 0)) return '';
+  const ctxStr = ctx < 1000 ? String(Math.round(ctx)) : `${Math.round(ctx / 1000)}k`;
+  const pct = Math.min(100, Math.round((cacheRead / ctx) * 100));
+  return `resumed: ${ctxStr} input · ${pct}% cached`;
 }
 
 export function threadsPath() { return path.join(tandemHome(), 'threads.json'); }
@@ -75,7 +86,7 @@ const promptProps = {
   prompt: { type: 'string', description: 'Self-contained task. The other agent cannot see this conversation: include goal, files, constraints, and desired output format.' },
   cwd: { type: 'string', description: 'Absolute path to the project/workspace directory to run in. Always pass your active workspace path when calling from a global or plugin MCP server.' },
   edit: { type: 'boolean', description: 'Allow file edits. Default false (read-only). Commit first so the diff is reviewable.' },
-  thread: { type: 'string', description: 'Thread id to group related calls and reuse sessions. Omit to use this MCP server session thread.' },
+  thread: { type: 'string', description: 'Thread id for a multi-call conversation (plan-critique, review rounds): calls with the same id in this workspace reuse one partner session. Omit for a fresh session; each reused call re-sends the whole prior conversation to the model.' },
   category: { type: 'string', enum: CATEGORIES, description: 'Your classification of this task (you have read it; tandem\'s keyword rules have not). Picks the model when `model` is omitted and labels the call in the ledger.' },
 };
 
@@ -163,13 +174,14 @@ async function resolveWorkDir(rawCwd, getClientRoot) {
   return { cwd: process.cwd(), explicit: false };
 }
 
-async function callTool(name, a, expose, cfg, defaultThread, getClientRoot) {
-  if (name !== 'ask_gemini' && name !== 'ask_claude') return callToolNow(name, a, expose, cfg, defaultThread, getClientRoot);
-  const thread = resolveThread(a.thread, defaultThread);
-  return inThreadOrder(thread, () => callToolNow(name, a, expose, cfg, defaultThread, getClientRoot));
+async function callTool(name, a, expose, cfg, getClientRoot) {
+  if (name !== 'ask_gemini' && name !== 'ask_claude') return callToolNow(name, a, expose, cfg, getClientRoot);
+  const thread = explicitThread(a.thread);
+  if (!thread) return callToolNow(name, a, expose, cfg, getClientRoot);
+  return inThreadOrder(thread, () => callToolNow(name, a, expose, cfg, getClientRoot));
 }
 
-async function callToolNow(name, a, expose, _cfg, defaultThread, getClientRoot) {
+async function callToolNow(name, a, expose, _cfg, getClientRoot) {
   const text = (t, isError = false) => ({ content: [{ type: 'text', text: t }], isError });
   const liveCfg = loadConfig();
   if (name === 'route_task') {
@@ -210,32 +222,38 @@ async function callToolNow(name, a, expose, _cfg, defaultThread, getClientRoot) 
     const fallback = agent === 'gemini' ? liveCfg.defaults.geminiModel : liveCfg.defaults.claudeModel;
     model = pick.agent === agent ? pick.model : fallback;
   }
-  const thread = resolveThread(a.thread, defaultThread);
-  const curCwd = normCwd(workDir);
-  const key = threadKey(thread, curCwd);
-  const threads = readThreads();
-  const entry = Object.hasOwn(threads, key) ? threads[key] : null;
-  // Thread names are free text; only reuse a session saved from this same project folder.
-  const saved = entry && (!entry.cwd || (typeof entry.cwd === 'string' && normCwd(entry.cwd) === curCwd)) ? entry : null;
+  const thread = explicitThread(a.thread);
+  let saved = null;
+  if (thread) {
+    const curCwd = normCwd(workDir);
+    const key = threadKey(thread, curCwd);
+    const threads = readThreads();
+    const entry = Object.hasOwn(threads, key) ? threads[key] : null;
+    // Thread names are free text; only reuse a session saved from this same project folder.
+    saved = entry && (!entry.cwd || (typeof entry.cwd === 'string' && normCwd(entry.cwd) === curCwd)) ? entry : null;
+  }
   const conversation = agent === 'gemini' ? (a.conversation_id || saved?.gemini) : undefined;
   const resume = agent === 'claude' ? (a.session_id || saved?.claude) : undefined;
   const meta = { from: agent === 'gemini' ? 'claude' : 'gemini', category, tag: 'mcp', lead: leadFor(expose), thread, cwd: workDir };
   const opts = { prompt: a.prompt, model, edit: !!a.edit, conversation, resume, cwd: workDir };
   let { res, rec } = await callAndLog(agent, opts, meta, liveCfg);
+  let resumed = Boolean(agent === 'claude' ? resume : conversation);
   // A saved session can disappear (deleted, other machine); retry fresh rather than fail.
-  const reused = (agent === 'claude' && resume && !a.session_id) || (agent === 'gemini' && conversation && !a.conversation_id);
-  if (!res.ok && res.status === 'error' && reused) {
+  const fromThread = (agent === 'claude' && resume && !a.session_id) || (agent === 'gemini' && conversation && !a.conversation_id);
+  if (!res.ok && res.status === 'error' && fromThread) {
+    resumed = false;
     ({ res, rec } = await callAndLog(agent, { ...opts, conversation: undefined, resume: undefined }, meta, liveCfg));
   }
-  if (res.ok && res.sessionId) saveThread(thread, agent, res.sessionId, workDir);
+  if (thread && res.ok && res.sessionId) saveThread(thread, agent, res.sessionId, workDir);
+  const sessionMode = thread ? `thread ${thread}` : resumed ? 'resumed session' : 'fresh session';
+  const reuse = reuseNote(agent, res.usage, resumed);
   const pluginNote = !explicitCwd && PLUGIN_DIR_RE.test(workDir) ? ' · note: ran in plugin dir; pass cwd for workspace access' : '';
-  const footer = `\n\n[${res.agent} ${res.model} · ${res.status} · ${Math.round(res.durationMs / 1000)}s · ${res.usage.total} tokens · session ${res.sessionId} · thread ${thread}${res.denied.length ? ` · denied: ${res.denied.join(', ')}` : ''}${shellDeniedHint(res.denied, liveCfg) ? ` · ${shellDeniedHint(res.denied, liveCfg)}` : ''}${agent === 'gemini' ? ` · ≈$${rec.claudeEquivUsd.toFixed(4)} of Claude usage offloaded` : ''}${pluginNote}]`;
+  const footer = `\n\n[${res.agent} ${res.model} · ${res.status} · ${Math.round(res.durationMs / 1000)}s · ${res.usage.total} tokens · session ${res.sessionId} · ${sessionMode}${res.denied.length ? ` · denied: ${res.denied.join(', ')}` : ''}${shellDeniedHint(res.denied, liveCfg) ? ` · ${shellDeniedHint(res.denied, liveCfg)}` : ''}${agent === 'gemini' ? ` · ≈$${rec.claudeEquivUsd.toFixed(4)} of Claude usage offloaded` : ''}${pluginNote}${reuse ? ` · ${reuse}` : ''}]`;
   if (!res.ok) return text(`${res.agent} failed (${res.status}): ${res.error || 'no output'}${footer}`, true);
   return text(res.text + footer);
 }
 
 export function serve(expose, cfg) {
-  const defaultThread = `mcp-${randomBytes(4).toString('hex')}`;
   const send = (msg) => process.stdout.write(JSON.stringify(msg) + '\n');
   const rl = createInterface({ input: process.stdin });
   let clientSupportsRoots = false;
@@ -302,7 +320,7 @@ export function serve(expose, cfg) {
         result = { protocolVersion: v, capabilities: { tools: {} }, serverInfo: { name: 'tandem', version: VERSION } };
       } else if (method === 'ping') result = {};
       else if (method === 'tools/list') result = { tools: tools(expose) };
-      else if (method === 'tools/call') result = await callTool(params.name, params.arguments || {}, expose, cfg, defaultThread, requestClientRoot);
+      else if (method === 'tools/call') result = await callTool(params.name, params.arguments || {}, expose, cfg, requestClientRoot);
       else return send({ jsonrpc: '2.0', id, error: { code: -32601, message: `Method not found: ${method}` } });
       send({ jsonrpc: '2.0', id, result });
     } catch (err) {

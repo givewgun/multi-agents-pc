@@ -18,3 +18,4 @@ Read the one-liner first. Open the file only if you're touching that area. New d
 | [0012](0012-lead-classifies.md) | Lead LLM classifies + decomposes (`category`); router = policy; no match → `general` Neon, not Flash Low | accepted |
 | [0013](0013-opt-in-delegation-solo.md) | Delegation is opt-in ("use tandem freely" = full judgment); `tandem solo` hard-blocks all agent-to-agent calls | accepted; solo folded into 0014 |
 | [0014](0014-session-mode-hooks.md) | `tandem mode ask\|free\|solo`, delivered by per-prompt hooks (Claude `UserPromptSubmit`, Antigravity `PreInvocation`) | accepted |
+| [0015](0015-explicit-thread-reuse.md) | Reuse MCP partner sessions only on explicit `thread` (fresh by default); show reused context & cache % in footer | accepted |
