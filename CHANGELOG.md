@@ -5,6 +5,11 @@ All notable changes to `tandem-agents` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Docs
+- `docs/DAILY.md`: "Follow-ups and memory (threads)" — what fresh-by-default means day to day and what to say to keep or drop a thread.
+
 ## [0.5.0] - 2026-11-26
 
 **Upgrading:** `npm i -g tandem-agents@latest`, then restart Claude Code and Antigravity so the MCP server reloads. To keep a partner conversation across calls, pass the same `thread` (the `/gemini` and `/pair` skills already do).

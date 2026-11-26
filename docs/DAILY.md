@@ -26,6 +26,16 @@ Session modes, shared by both apps (type `/tandem <mode>` in either, or `tandem 
 
 Same team, roles swapped. Say "work with claude", "ask claude", "/pair", "get claude's review", or "use tandem freely". Gemini uses the tandem plugin's `ask_claude` tool, which prompts you first because it uses Claude limits, and keeps those calls small. Best when the work is big, UI-heavy, or parallel.
 
+## Follow-ups and memory (threads)
+
+You don't manage threads; the lead does. Each delegated call starts a **fresh** partner session (cheap) unless the lead passes a `thread`, which the `/gemini` and `/pair` skills do for multi-step work (plan → critique → fix). A reused thread re-sends its whole history every call, and the footer shows the cost: `resumed: 122k input · 92% cached`.
+
+| You want | Say |
+|---|---|
+| A quick one-off ask | Nothing special |
+| Gemini to remember the last exchange | "same thread" or "continue with gemini" |
+| A clean start on a heavy thread | "new thread" |
+
 ## See what they said to each other
 
 `tandem show last`, `tandem show thread:<id>`, or the dashboard's **Conversations** tab. Every exchange is read from the agent's own transcript, with a "resume" command to reopen it. Your direct work with each agent is counted by Stop hooks, so **Who did the work** shows both sides.
